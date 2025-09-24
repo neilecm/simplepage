@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Products | Cera Brasileira</title>
+  <link rel="stylesheet" href="./assets/css/style.css?v=2">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="container">
+      <h1>Cera Brasileira</h1>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html" class="active">Products</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="cart.html" class="cart-link">🛒 Cart (<span id="cart-count">0</span>)</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- PRODUCTS SECTION -->
+  <section id="products">
+    <h2>Our Products</h2>
+    <div class="products-grid">
+
+      <!-- Product 1 -->
+      <div class="product">
+        <div class="image-box">
+          <img src="assets/img/CeraBrasileira_220_1.webp" alt="Cera Brasileira Honey Wax 220g">
+        </div>
+        <h3>Honey Wax (220g)</h3>
+        <p class="tagline">Smooth & Natural</p>
+        <span class="price">$12.99</span>
+        <a href="#" 
+           class="add-to-cart" 
+           data-name="Honey Wax (220g)" 
+           data-price="12.99">Add to Cart</a>
+      </div>
+
+      <!-- Product 2 -->
+      <div class="product">
+        <div class="image-box">
+          <img src="assets/img/CeraBrasileira.webp" alt="Cera Brasileira Propolis Wax 500g">
+        </div>
+        <h3>Propolis Wax (500g)</h3>
+        <p class="tagline">Gentle on Skin</p>
+        <span class="price">$19.99</span>
+        <a href="#" 
+           class="add-to-cart" 
+           data-name="Propolis Wax (500g)" 
+           data-price="19.99">Add to Cart</a>
+      </div>
+
+      <!-- Product 3 -->
+      <div class="product">
+        <div class="image-box">
+          <img src="assets/img/CeraBrasileira_220_2.webp" alt="Cera Brasileira Premium Wax Kit">
+        </div>
+        <h3>Premium Wax Kit</h3>
+        <p class="tagline">Everything You Need</p>
+        <span class="price">$29.99</span>
+        <a href="#" 
+           class="add-to-cart" 
+           data-name="Premium Wax Kit" 
+           data-price="29.99">Add to Cart</a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>&copy; 2025 Cera Brasileira. All rights reserved.</p>
+  </footer>
+
+<script src="assets/js/cart.js"></script>
+</body>
+</html>

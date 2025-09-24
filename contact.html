@@ -3,71 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact Us – Cera Brasileira</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <title>Contact Us | Cera Brasileira</title>
+  <link rel="stylesheet" href="assets/css/style.css">
   <meta name="description" content="Get in touch with Cera Brasileira. Ask about our natural Brazilian hard wax products, distribution, or business inquiries.">
   <meta property="og:title" content="Contact Cera Brasileira">
   <meta property="og:description" content="Reach out to us for product details, distribution, and partnership opportunities.">
-  <meta property="og:image" content="https://cerabrasileira.com/assets/images/product.jpg">
+  <meta property="og:image" content="assets/img/CeraBrasileira_220_1.webp">
   <meta property="og:url" content="https://cerabrasileira.com/contact.html">
-
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans">
+<body>
 
-  <!-- Header -->
-  <header class="bg-white shadow-md">
-    <div class="max-w-5xl mx-auto p-4 flex justify-between items-center">
-      <h1 class="text-xl font-bold text-yellow-700">Brazilian Hard Wax</h1>
-      <nav class="space-x-4">
-        <a href="index.html" class="hover:text-yellow-700">Home</a>
-        <a href="contact.html" class="text-yellow-700 font-semibold">Contact</a>
+  <!-- HEADER -->
+  <header>
+    <div class="container">
+      <h1>Cera Brasileira</h1>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html">Products</a>
+        <a href="about.html">About</a>
+        <a href="contact.html" class="active">Contact</a>
+        <a href="cart.html" class="cart-link">🛒 Cart (<span id="cart-count">0</span>)</a>
       </nav>
     </div>
   </header>
 
-  <!-- Hero -->
-  <section class="text-center py-12 bg-gradient-to-r from-yellow-600 to-yellow-400 text-white">
-    <h2 class="text-4xl font-bold mb-4">Get in Touch</h2>
-    <p class="text-lg">We’d love to hear from you. Reach out with any questions about the one and only natural Brazilian Hard Wax.</p>
+  <!-- HERO -->
+  <section id="hero">
+    <h2>Get in Touch</h2>
+    <p>We’d love to hear from you. Reach out with any questions about the one and only natural Brazilian Hard Wax.</p>
   </section>
 
-  <!-- Contact Form -->
-  <section class="max-w-3xl mx-auto bg-white p-8 mt-10 rounded-lg shadow-lg">
-    <h3 class="text-2xl font-bold mb-6 text-yellow-700">Contact Form</h3>
-      <form action="https://formspree.io/f/xpwyaaej" method="POST" class="space-y-4">
-        <input type="text" name="name" placeholder="Your Name" required
-         class="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-yellow-600">
+  <!-- CONTACT SECTION -->
+  <section id="contact">
+    <h2>Contact Form</h2>
+    <form action="https://formspree.io/f/xpwyaaej" method="POST">
+      <input type="text" name="name" placeholder="Your Name" required>
+      <input type="email" name="email" placeholder="Your Email" required>
+      <textarea name="message" placeholder="Your Message" required></textarea>
 
-          <input type="email" name="email" placeholder="Your Email" required
-         class="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-yellow-600">
+      <!-- Formspree hidden fields -->
+      <input type="hidden" name="_redirect" value="thanks.html">
+      <input type="hidden" name="_subject" value="New message from Cera Brasileira website!">
+      <input type="text" name="_gotcha" style="display:none">
 
-         <input type="hidden" name="_redirect" value="https://cerabrasileira.com/thanks.html">
-         <input type="text" name="_gotcha" style="display:none">
-         <input type="hidden" name="_subject" value="New message from Cera Brasileira website!">
-
-          <textarea name="message" placeholder="Your Message" required
-            class="w-full p-3 border rounded h-32 focus:outline-none focus:ring-2 focus:ring-yellow-600"></textarea>
-
-        <button type="submit"
-          class="px-6 py-3 bg-yellow-600 text-white rounded-lg shadow hover:bg-yellow-700">
-          Send Message
-         </button>
-      </form>
+      <button type="submit">Send Message</button>
+    </form>
   </section>
 
-  <!-- Contact Info -->
-  <section class="max-w-3xl mx-auto p-8 text-center">
-    <h3 class="text-xl font-bold mb-4 text-yellow-700">Other Ways to Reach Us</h3>
-    <p>Email: <a href="mailto:info@cerabrasileira.com" class="text-yellow-700 underline">info@cerabrasileira.com</a></p>
-    <p>Instagram: <a href="https://instagram.com/cerabrasileira" class="text-yellow-700 underline">@cerabrasileira</a></p>
-    <p>Phone/WhatsApp: <span class="font-semibold">+62 81288472398</span></p>
+  <!-- CONTACT INFO -->
+  <section id="contact">
+    <h2>Other Ways to Reach Us</h2>
+    <p>Email: <a href="mailto:info@cerabrasileira.com">info@cerabrasileira.com</a></p>
+    <p>Instagram: <a href="https://instagram.com/cerabrasileira">@cerabrasileira</a></p>
+    <p>Phone/WhatsApp: <strong>+62 81288472398</strong></p>
   </section>
 
-  <!-- Footer -->
-  <footer class="bg-gray-200 text-center p-4 mt-8">
+  <!-- FOOTER -->
+  <footer>
     <p>© 2025 Cera Brasileira. All rights reserved.</p>
   </footer>
+
+  <script src="assets/js/cart.js"></script>
 </body>
 </html>
-
