@@ -1,2 +1,12 @@
+# netlify.toml
+
 [build]
+  publish = "."                # folder where your static site (cart.html etc) lives
+  functions = "netlify/functions"  # path to serverless functions
+
+# Optional: set build command (only if you need one)
+# build = "npm run build"
+
+[dev]
   functions = "netlify/functions"
+  publish = "."
