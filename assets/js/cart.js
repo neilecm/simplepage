@@ -136,36 +136,43 @@ document.getElementById('pay-button').onclick = async function () {
     // calculate total cart amount
     const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-    // request a token from your Netlify function
+    // request token from Netlify function
     const response = await fetch("/.netlify/functions/create-transaction", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" }, // IMPORTANT
       body: JSON.stringify({ amount: totalAmount })
     });
 
     const data = await response.json();
-    console.log("Midtrans response:", data); // <--- debug log
+    console.log("Midtrans token response:", data); // debug
+
+    if (!data.token) {
+      throw new Error("No token received from server");
+    }
 
     // call Midtrans Snap popup
     snap.pay(data.token, {
       onSuccess: function (result) {
-        alert("Payment success!");
-        window.location.href = "payment-successful.html";
+        console.log("Success:", result);
+        window.location.href = "payment-successful.html"; // success page
       },
       onPending: function (result) {
         console.log("Pending:", result);
-        window.location.href = "pending.html";
+        window.location.href = "pending.html"; // pending page
       },
       onError: function (result) {
-        window.location.href = "failed-payment.html";
-      }
+        console.error("Error:", result);
+        window.location.href = "failed-payment.html"; // failed page
+      },
       onClose: function () {
         alert("You closed the payment popup.");
       }
     });
   } catch (err) {
+    console.error("Payment error:", err);
     alert("Error: " + err.message);
   }
 };
+
 
 
