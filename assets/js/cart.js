@@ -129,41 +129,39 @@ document.getElementById("clear-cart")?.addEventListener("click", () => {
 });
 
 // ==============================
-// MIDTRANS PAYMENT INTEGRATION
+// MIDTRANS PAYMENT
 // ==============================
+document.getElementById('pay-button').onclick = async function () {
+  try {
+    // calculate total cart amount
+    const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-document.getElementById('pay-button').addEventListener('click', function () {
-  // Calculate total cart value
-  let totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-
-  // Request a transaction token from Netlify Function
-  fetch("/.netlify/functions/create-transaction", {
-    method: "POST",
-    body: JSON.stringify({ amount: totalAmount }),
-  })
-    .then(res => res.json())
-    .then(data => {
-      // Call Midtrans Snap
-      snap.pay(data.token, {
-        onSuccess: function (result) {
-          console.log("Success:", result);
-          window.location.href = "thanks.html";
-        },
-        onPending: function (result) {
-          console.log("Pending:", result);
-          alert("Payment pending!");
-        },
-        onError: function (result) {
-          console.error("Error:", result);
-          alert("Payment failed!");
-        },
-        onClose: function () {
-          alert("Payment popup closed.");
-        }
-      });
-    })
-    .catch(err => {
-      console.error("Failed to create transaction:", err);
-      alert("Error creating transaction.");
+    // request a token from your Netlify function
+    const response = await fetch("/.netlify/functions/create-transaction", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: totalAmount })
     });
-});
+
+    const data = await response.json();
+
+    // call Midtrans Snap popup
+    snap.pay(data.token, {
+      onSuccess: function (result) {
+        alert("Payment success!");
+        window.location.href = "thanks.html";
+      },
+      onPending: function (result) {
+        alert("Payment pending!");
+      },
+      onError: function (result) {
+        alert("Payment failed!");
+      },
+      onClose: function () {
+        alert("You closed the payment popup.");
+      }
+    });
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+};
