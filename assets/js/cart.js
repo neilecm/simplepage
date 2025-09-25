@@ -149,7 +149,7 @@ document.getElementById('pay-button').onclick = async function () {
     snap.pay(data.token, {
       onSuccess: function (result) {
         alert("Payment success!");
-        window.location.href = "thanks.html";
+        window.location.href = "payment-successful.html";
       },
       onPending: function (result) {
         alert("Payment pending!");
