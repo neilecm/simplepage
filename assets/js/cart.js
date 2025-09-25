@@ -48,9 +48,35 @@ function removeItem(index) {
 }
 
 // ==============================
+// PAYMENT SPINNER (overlay)
+// ==============================
+const messages = [
+  "Brazilian Hard Wax enhances your natural beauty.",
+  "Gentle on your skin, tough on unwanted hair.",
+  "Feel healthier, smoother, more confident."
+];
+let msgIndex = 0;
+let msgInterval;
+
+function showPaymentSpinner() {
+  const overlay = document.getElementById("payment-spinner");
+  const msgEl = document.getElementById("spinner-message");
+  overlay.style.display = "block";
+  msgEl.innerText = messages[msgIndex];
+  msgInterval = setInterval(() => {
+    msgIndex = (msgIndex + 1) % messages.length;
+    msgEl.innerText = messages[msgIndex];
+  }, 3000); // rotate message every 3s
+}
+
+function hidePaymentSpinner() {
+  document.getElementById("payment-spinner").style.display = "none";
+  clearInterval(msgInterval);
+}
+
+// ==============================
 // MIDTRANS PAYMENT
 // ==============================
-
 document.getElementById("pay-button").onclick = async function () {
   try {
     // calculate total cart amount
@@ -59,7 +85,7 @@ document.getElementById("pay-button").onclick = async function () {
     // show spinner overlay
     showPaymentSpinner();
 
-    // request token from your Netlify function
+    // request token from Netlify function
     let response = await fetch("/.netlify/functions/create-transaction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,10 +94,10 @@ document.getElementById("pay-button").onclick = async function () {
 
     let data = await response.json();
 
-    // fallback: retry if no token
+    // retry once if no token
     if (!data.token) {
       console.warn("No token on first try, retrying...");
-      await new Promise(r => setTimeout(r, 500)); // wait 0.5s
+      await new Promise(r => setTimeout(r, 500));
       response = await fetch("/.netlify/functions/create-transaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -82,7 +108,7 @@ document.getElementById("pay-button").onclick = async function () {
 
     if (!data.token) throw new Error("No token received from server");
 
-    // call Midtrans Snap
+    // call Midtrans Snap popup
     snap.pay(data.token, {
       onSuccess: function (result) {
         hidePaymentSpinner();
@@ -101,7 +127,6 @@ document.getElementById("pay-button").onclick = async function () {
         alert("You closed the payment popup.");
       }
     });
-
   } catch (err) {
     hidePaymentSpinner();
     console.error("Payment error:", err);
@@ -109,7 +134,8 @@ document.getElementById("pay-button").onclick = async function () {
   }
 };
 
-
-// Initialize on load
+// ==============================
+// INITIALIZE ON LOAD
+// ==============================
 updateCartCount();
 renderCart();
