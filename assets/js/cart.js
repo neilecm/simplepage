@@ -127,3 +127,43 @@ document.getElementById("clear-cart")?.addEventListener("click", () => {
   updateCartCount();
   renderCart();
 });
+
+// ==============================
+// MIDTRANS PAYMENT INTEGRATION
+// ==============================
+
+document.getElementById('pay-button').addEventListener('click', function () {
+  // Calculate total cart value
+  let totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+  // Request a transaction token from Netlify Function
+  fetch("/.netlify/functions/create-transaction", {
+    method: "POST",
+    body: JSON.stringify({ amount: totalAmount }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      // Call Midtrans Snap
+      snap.pay(data.token, {
+        onSuccess: function (result) {
+          console.log("Success:", result);
+          window.location.href = "thanks.html";
+        },
+        onPending: function (result) {
+          console.log("Pending:", result);
+          alert("Payment pending!");
+        },
+        onError: function (result) {
+          console.error("Error:", result);
+          alert("Payment failed!");
+        },
+        onClose: function () {
+          alert("Payment popup closed.");
+        }
+      });
+    })
+    .catch(err => {
+      console.error("Failed to create transaction:", err);
+      alert("Error creating transaction.");
+    });
+});
