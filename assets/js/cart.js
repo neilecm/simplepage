@@ -144,6 +144,7 @@ document.getElementById('pay-button').onclick = async function () {
     });
 
     const data = await response.json();
+    console.log("Midtrans response:", data); // <--- debug log
 
     // call Midtrans Snap popup
     snap.pay(data.token, {
@@ -152,11 +153,12 @@ document.getElementById('pay-button').onclick = async function () {
         window.location.href = "payment-successful.html";
       },
       onPending: function (result) {
-        alert("Payment pending!");
+        console.log("Pending:", result);
+        window.location.href = "pending.html";
       },
       onError: function (result) {
-        alert("Payment failed!");
-      },
+        window.location.href = "failed-payment.html";
+      }
       onClose: function () {
         alert("You closed the payment popup.");
       }
@@ -165,3 +167,5 @@ document.getElementById('pay-button').onclick = async function () {
     alert("Error: " + err.message);
   }
 };
+
+
