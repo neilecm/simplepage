@@ -49,5 +49,61 @@
 
 <script src="cart.js"></script>
 
+<!-- Payment Spinner -->
+<div id="payment-spinner" style="
+  display:none; 
+  position:fixed; 
+  top:0; left:0; right:0; bottom:0; 
+  background:rgba(0,0,0,0.7); 
+  z-index:9999; 
+  color:white; 
+  text-align:center; 
+  padding-top:20%;
+  font-family: Arial, sans-serif;
+">
+  <div class="loader" style="
+    border: 8px solid #f3f3f3; 
+    border-top: 8px solid #e63946; 
+    border-radius: 50%; 
+    width: 60px; height: 60px; 
+    margin:auto; 
+    animation: spin 1s linear infinite;
+  "></div>
+  <p id="spinner-message" style="margin-top:20px; font-size:18px;"></p>
+</div>
+
+<style>
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+const messages = [
+  "Brazilian Hard Wax enhances your natural beauty.",
+  "Gentle on your skin, tough on unwanted hair.",
+  "Feel healthier, smoother, more confident."
+];
+let msgIndex = 0;
+let msgInterval;
+
+function showPaymentSpinner() {
+  document.getElementById("payment-spinner").style.display = "block";
+  document.getElementById("spinner-message").innerText = messages[msgIndex];
+  msgInterval = setInterval(() => {
+    msgIndex = (msgIndex + 1) % messages.length;
+    document.getElementById("spinner-message").innerText = messages[msgIndex];
+  }, 3000); // change phrase every 3 seconds
+}
+
+function hidePaymentSpinner() {
+  document.getElementById("payment-spinner").style.display = "none";
+  clearInterval(msgInterval);
+}
+</script>
+
 </body>
 </html>
+
+

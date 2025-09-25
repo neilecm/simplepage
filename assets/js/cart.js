@@ -56,54 +56,59 @@ document.getElementById("pay-button").onclick = async function () {
     // calculate total cart amount
     const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-    console.log("Sending amount to backend:", totalAmount);
+    // show spinner overlay
+    showPaymentSpinner();
 
-    // request token from Netlify function
-    const response = await fetch("/.netlify/functions/create-transaction", {
+    // request token from your Netlify function
+    let response = await fetch("/.netlify/functions/create-transaction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount: totalAmount })
     });
 
-    const text = await response.text();
-    console.log("Raw response from server:", text);
+    let data = await response.json();
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (err) {
-      throw new Error("Failed to parse JSON: " + err.message);
-    }
-
-    console.log("Parsed token:", data.token);
-
+    // fallback: retry if no token
     if (!data.token) {
-      throw new Error("No token received from server");
+      console.warn("No token on first try, retrying...");
+      await new Promise(r => setTimeout(r, 500)); // wait 0.5s
+      response = await fetch("/.netlify/functions/create-transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: totalAmount })
+      });
+      data = await response.json();
     }
 
-    // call Midtrans Snap popup
+    if (!data.token) throw new Error("No token received from server");
+
+    // call Midtrans Snap
     snap.pay(data.token, {
       onSuccess: function (result) {
-        console.log("Payment success:", result);
-        window.location.href = "thanksbuyer.html";
+        hidePaymentSpinner();
+        window.location.href = "successful-payment.html";
       },
       onPending: function (result) {
-        console.log("Payment pending:", result);
-        window.location.href = "pending.html";
+        hidePaymentSpinner();
+        window.location.href = "pending-payment.html";
       },
       onError: function (result) {
-        console.error("Payment failed:", result);
-        window.location.href = "failed.html";
+        hidePaymentSpinner();
+        window.location.href = "failed-payment.html";
       },
       onClose: function () {
+        hidePaymentSpinner();
         alert("You closed the payment popup.");
       }
     });
+
   } catch (err) {
+    hidePaymentSpinner();
     console.error("Payment error:", err);
     alert("Error: " + err.message);
   }
 };
+
 
 // Initialize on load
 updateCartCount();
