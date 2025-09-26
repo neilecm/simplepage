@@ -32,7 +32,14 @@ function renderCart() {
     total += item.price * item.qty;
     container.innerHTML += `
       <div class="cart-item">
-        ${item.name} - $${item.price.toFixed(2)} × ${item.qty} = $${(item.price * item.qty).toFixed(2)}
+        <span>${item.name}</span> 
+        <span>$${item.price.toFixed(2)}</span>
+        <div class="qty-controls">
+          <button onclick="decreaseQty(${index})">-</button>
+          <span>${item.qty}</span>
+          <button onclick="increaseQty(${index})">+</button>
+        </div>
+        <span>= $${(item.price * item.qty).toFixed(2)}</span>
         <button onclick="removeItem(${index})">Remove</button>
       </div>
     `;
@@ -41,9 +48,43 @@ function renderCart() {
   totalEl.textContent = `Total: $${total.toFixed(2)}`;
 }
 
-// Remove item
+// Add item to cart
+function addToCart(name, price) {
+  const existing = cart.find(item => item.name === name);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({ name, price, qty: 1 });
+  }
+  saveCart();
+}
+
+// Increase quantity
+function increaseQty(index) {
+  cart[index].qty += 1;
+  saveCart();
+}
+
+// Decrease quantity
+function decreaseQty(index) {
+  if (cart[index].qty > 1) {
+    cart[index].qty -= 1;
+  } else {
+    cart.splice(index, 1); // remove item if qty = 0
+  }
+  saveCart();
+}
+
+
+// Remove one item
 function removeItem(index) {
   cart.splice(index, 1);
+  saveCart();
+}
+
+// Clear all items
+function clearCart() {
+  cart = [];
   saveCart();
 }
 
@@ -53,7 +94,9 @@ function removeItem(index) {
 const messages = [
   "Brazilian Hard Wax enhances your natural beauty.",
   "Gentle on your skin, tough on unwanted hair.",
-  "Feel healthier, smoother, more confident."
+  "Feel healthier, smoother, more confident.",
+  "Your skin deserves the best care.",
+  "Smooth skin, smooth confidence."
 ];
 let msgIndex = 0;
 let msgInterval;
@@ -66,7 +109,7 @@ function showPaymentSpinner() {
   msgInterval = setInterval(() => {
     msgIndex = (msgIndex + 1) % messages.length;
     msgEl.innerText = messages[msgIndex];
-  }, 3000); // rotate message every 3s
+  }, 3000);
 }
 
 function hidePaymentSpinner() {
@@ -79,13 +122,15 @@ function hidePaymentSpinner() {
 // ==============================
 document.getElementById("pay-button").onclick = async function () {
   try {
-    // calculate total cart amount
     const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-    // show spinner overlay
+    if (totalAmount <= 0) {
+      alert("Your cart is empty.");
+      return;
+    }
+
     showPaymentSpinner();
 
-    // request token from Netlify function
     let response = await fetch("/.netlify/functions/create-transaction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -108,15 +153,15 @@ document.getElementById("pay-button").onclick = async function () {
 
     if (!data.token) throw new Error("No token received from server");
 
-    // call Midtrans Snap popup
     snap.pay(data.token, {
       onSuccess: function (result) {
         hidePaymentSpinner();
-        window.location.href = "successful-payment.html";
+        clearCart(); // clear after success
+        window.location.href = "payment-successful.html";
       },
       onPending: function (result) {
         hidePaymentSpinner();
-        window.location.href = "pending-payment.html";
+        window.location.href = "pending.html";
       },
       onError: function (result) {
         hidePaymentSpinner();
@@ -127,6 +172,7 @@ document.getElementById("pay-button").onclick = async function () {
         alert("You closed the payment popup.");
       }
     });
+
   } catch (err) {
     hidePaymentSpinner();
     console.error("Payment error:", err);
