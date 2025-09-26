@@ -27,59 +27,61 @@
     <h2>Your Shopping Cart</h2>
     <div id="cart-items"></div>
     <div id="cart-total"></div>
-    <button id="clear-cart">Clear Cart</button>
+    <!-- Clear Cart Button -->
+<button onclick="clearCart()">Clear Cart</button>
   </section>
 
   <!-- Midtrans pay-button -->
   <button id="pay-button">Pay Now</button>
 
-  <!-- FOOTER -->
+  <!-- Payment Spinner Overlay -->
+  <div id="payment-spinner" style="
+    display:none;
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    background:rgba(0,0,0,0.7);
+    z-index:9999;
+    color:white;
+    text-align:center;
+    padding-top:20%;
+    font-family: Arial, sans-serif;
+  ">
+    <div class="loader" style="
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #e63946;
+      border-radius: 50%;
+      width: 60px; height: 60px;
+      margin:auto;
+      animation: spin 1s linear infinite;
+    "></div>
+    <p id="spinner-message" style="margin-top:20px; font-size:18px;"></p>
+  </div>
+
+  <style>
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  </style>
+
+  <!-- ==========================
+       MIDTRANS SNAP SDK
+       ========================== -->
+  <script src="https://app.sandbox.midtrans.com/snap/snap.js"
+          data-client-key="Mid-client-z5imH2Dt1I-CSOr8"></script>
+
+  <!-- ==========================
+       YOUR CART LOGIC
+       ========================== -->
+  <script src="assets/js/cart.js"></script>
+
+<!-- FOOTER -->
   <footer>
     <p>&copy; 2025 Cera Brasileira. All rights reserved.</p>
   </footer>
 
-  <script src="assets/js/cart.js"></script>
-
-  <!-- Midtrans Snap Script -->
-<script type="text/javascript"
-  src="https://app.sandbox.midtrans.com/snap/snap.js"
-  data-client-key="Mid-client-z5imH2Dt1I-CSOr8">
-</script>
-
-<!-- Clear Cart Button -->
-<button onclick="clearCart()">Clear Cart</button>
-
-<!-- Payment Spinner Overlay -->
-<div id="payment-spinner" style="
-  display:none;
-  position:fixed;
-  top:0; left:0; right:0; bottom:0;
-  background:rgba(0,0,0,0.7);
-  z-index:9999;
-  color:white;
-  text-align:center;
-  padding-top:20%;
-  font-family: Arial, sans-serif;
-">
-  <div class="loader" style="
-    border: 8px solid #f3f3f3;
-    border-top: 8px solid #e63946;
-    border-radius: 50%;
-    width: 60px; height: 60px;
-    margin:auto;
-    animation: spin 1s linear infinite;
-  "></div>
-  <p id="spinner-message" style="margin-top:20px; font-size:18px;"></p>
-</div>
-
-<style>
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-</style>
-
 </body>
 </html>
+
 
 
