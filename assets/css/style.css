@@ -455,3 +455,48 @@ footer {
 footer p {
   margin: 0;
 }
+
+* ============================
+   Add and remove items style
+============================ */
+
+.cart-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qty-controls button {
+  padding: 4px 8px;
+  background: #e63946;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.qty-controls button:hover {
+  background: #b92d38;
+}
+
+button {
+  padding: 8px 14px;
+  background: #e63946;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #b0212c;
+}
