@@ -29,6 +29,8 @@ exports.handler = async (event) => {
       ])
       .select();
 
+    console.log("Insert result:", data, error); // 👈 Add this line
+
     if (error) {
       return {
         statusCode: 400,

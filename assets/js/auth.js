@@ -40,29 +40,45 @@ async function registerUser(e) {
 }
 
 // Handle Login
-async function loginUser(e) {
-  e.preventDefault();
+// js/auth.js
+async function loginUser(event) {
+  event.preventDefault();
 
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const res = await fetch("/.netlify/functions/auth-login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
-  });
+  try {
+    const response = await fetch("/.netlify/functions/auth-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
 
-  const data = await res.json();
-  if (res.ok) {
-    saveUser(data.user);
-    // Redirect to intended page or index.html
-    const redirect = localStorage.getItem("redirectAfterLogin") || "index.html";
-    localStorage.removeItem("redirectAfterLogin");
-    window.location.href = redirect;
-  } else {
-    alert(data.error || "Login failed");
+    const data = await response.json();
+
+    if (response.ok) {
+      // Save logged in user
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // Redirect after login
+      const redirect = localStorage.getItem("redirectAfterLogin") || "cart.html";
+      localStorage.removeItem("redirectAfterLogin");
+      window.location.href = redirect;
+    } else {
+      alert(data.error || "Login failed");
+    }
+  } catch (err) {
+    console.error("Login error:", err);
+    alert("Something went wrong. Please try again.");
   }
 }
+
+// attach handler
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("loginForm");
+  if (form) form.addEventListener("submit", loginUser);
+});
+
 
 // Check login-required pages
 function requireLogin() {
