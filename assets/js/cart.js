@@ -1,187 +1,153 @@
-// ==============================
-// CART LOGIC
-// ==============================
-
-// Load cart from localStorage
+// Initialize cart from localStorage
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-// Save cart
+// Update cart count in header
+function updateCartCount() {
+  const count = cart.reduce((sum, item) => sum + item.qty, 0);
+  const cartCountEl = document.getElementById("cart-count");
+  if (cartCountEl) cartCountEl.textContent = count;
+}
+
+// Save cart to localStorage
 function saveCart() {
   localStorage.setItem("cart", JSON.stringify(cart));
   updateCartCount();
-  renderCart();
-}
-
-// Update cart count in navbar
-function updateCartCount() {
-  const count = cart.reduce((sum, item) => sum + item.qty, 0);
-  const cartCount = document.querySelector("#cart-count");
-  if (cartCount) cartCount.textContent = count;
 }
 
 // Render cart items
 function renderCart() {
-  const container = document.getElementById("cart-items");
-  const totalEl = document.getElementById("cart-total");
-  if (!container || !totalEl) return;
+  const cartItemsContainer = document.getElementById("cart-items");
+  const cartTotalEl = document.getElementById("cart-total");
 
-  container.innerHTML = "";
+  if (!cartItemsContainer || !cartTotalEl) return;
+
+  cartItemsContainer.innerHTML = "";
+
   let total = 0;
-
   cart.forEach((item, index) => {
-    total += item.price * item.qty;
-    container.innerHTML += `
-      <div class="cart-item">
-        <span>${item.name}</span> 
-        <span>$${item.price.toFixed(2)}</span>
-        <div class="qty-controls">
-          <button onclick="decreaseQty(${index})">-</button>
-          <span>${item.qty}</span>
-          <button onclick="increaseQty(${index})">+</button>
-        </div>
-        <span>= $${(item.price * item.qty).toFixed(2)}</span>
-        <button onclick="removeItem(${index})">Remove</button>
-      </div>
+    const subtotal = item.price * item.qty;
+    total += subtotal;
+
+    const div = document.createElement("div");
+    div.classList.add("cart-item");
+    div.innerHTML = `
+      <span>${item.name} - Rp ${item.price.toLocaleString("id-ID")} x ${item.qty}</span>
+      <button onclick="changeQty(${index}, -1)">-</button>
+      <button onclick="changeQty(${index}, 1)">+</button>
+      <button onclick="removeItem(${index})">Remove</button>
     `;
+    cartItemsContainer.appendChild(div);
   });
 
-  totalEl.textContent = `Total: $${total.toFixed(2)}`;
+  cartTotalEl.textContent = `Total: Rp ${total.toLocaleString("id-ID")}`;
 }
 
-// Add item to cart
-function addToCart(name, price) {
-  const existing = cart.find(item => item.name === name);
-  if (existing) {
-    existing.qty += 1;
-  } else {
-    cart.push({ name, price, qty: 1 });
+// Change item quantity
+function changeQty(index, delta) {
+  cart[index].qty += delta;
+  if (cart[index].qty <= 0) {
+    cart.splice(index, 1);
   }
   saveCart();
+  renderCart();
 }
 
-// Increase quantity
-function increaseQty(index) {
-  cart[index].qty += 1;
-  saveCart();
-}
-
-// Decrease quantity
-function decreaseQty(index) {
-  if (cart[index].qty > 1) {
-    cart[index].qty -= 1;
-  } else {
-    cart.splice(index, 1); // remove item if qty = 0
-  }
-  saveCart();
-}
-
-
-// Remove one item
+// Remove item
 function removeItem(index) {
   cart.splice(index, 1);
   saveCart();
+  renderCart();
 }
 
-// Clear all items
-function clearCart() {
-  cart = [];
-  saveCart();
-}
+// ==========================
+// Checkout / Midtrans logic
+// ==========================
+async function checkout() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const address = JSON.parse(localStorage.getItem("address") || "null");
 
-// ==============================
-// PAYMENT SPINNER (overlay)
-// ==============================
-const messages = [
-  "Brazilian Hard Wax enhances your natural beauty.",
-  "Gentle on your skin, tough on unwanted hair.",
-  "Feel healthier, smoother, more confident.",
-  "Your skin deserves the best care.",
-  "Smooth skin, smooth confidence."
-];
-let msgIndex = 0;
-let msgInterval;
+  if (!user) {
+    alert("⚠️ Please login first.");
+    window.location.href = "login.html";
+    return;
+  }
 
-function showPaymentSpinner() {
-  const overlay = document.getElementById("payment-spinner");
-  const msgEl = document.getElementById("spinner-message");
-  overlay.style.display = "block";
-  msgEl.innerText = messages[msgIndex];
-  msgInterval = setInterval(() => {
-    msgIndex = (msgIndex + 1) % messages.length;
-    msgEl.innerText = messages[msgIndex];
-  }, 3000);
-}
+  if (!address) {
+    alert("⚠️ Please provide a delivery address first.");
+    window.location.href = "checkout.html";
+    return;
+  }
 
-function hidePaymentSpinner() {
-  document.getElementById("payment-spinner").style.display = "none";
-  clearInterval(msgInterval);
-}
+  const amount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-// ==============================
-// MIDTRANS PAYMENT
-// ==============================
-document.getElementById("pay-button").onclick = async function () {
+  const payload = {
+    amount,
+    cart,
+    customer: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || address.phone,
+      address: address.street,
+      city: address.city,
+      province: address.province,
+      postal: address.postal_code,
+      shippingCost: 20000 // Rp 20,000 shipping fee for test purposes, later change to dynamic price when integrating with RajaOngkir API
+      
+    },
+  };
+
+  console.log("📦 Checkout payload:", payload);
+
   try {
-    const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    // Show spinner
+    document.getElementById("spinner").style.display = "block";
 
-    if (totalAmount <= 0) {
-      alert("Your cart is empty.");
-      return;
-    }
-
-    showPaymentSpinner();
-
-    let response = await fetch("/.netlify/functions/create-transaction", {
+    const res = await fetch("/.netlify/functions/create-transaction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: totalAmount })
+      body: JSON.stringify(payload),
     });
 
-    let data = await response.json();
+    const data = await res.json();
+    console.log("✅ Midtrans response:", data);
 
-    // retry once if no token
-    if (!data.token) {
-      console.warn("No token on first try, retrying...");
-      await new Promise(r => setTimeout(r, 500));
-      response = await fetch("/.netlify/functions/create-transaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: totalAmount })
+    // Hide spinner
+    document.getElementById("spinner").style.display = "none";
+
+    if (res.ok && data.token) {
+      window.snap.pay(data.token, {
+        onSuccess: function (result) {
+          console.log("Payment success:", result);
+          window.location.href = "payment-successful.html";
+        },
+        onPending: function (result) {
+          console.log("Payment pending:", result);
+          window.location.href = "pending.html";
+        },
+        onError: function (result) {
+          console.error("Payment error:", result);
+          window.location.href = "failed-payment.html";
+        },
       });
-      data = await response.json();
+    } else {
+      alert("❌ Transaction failed: " + (data.error || "Unknown error"));
     }
-
-    if (!data.token) throw new Error("No token received from server");
-
-    snap.pay(data.token, {
-      onSuccess: function (result) {
-        hidePaymentSpinner();
-        clearCart(); // clear after success
-        window.location.href = "payment-successful.html";
-      },
-      onPending: function (result) {
-        hidePaymentSpinner();
-        window.location.href = "pending.html";
-      },
-      onError: function (result) {
-        hidePaymentSpinner();
-        window.location.href = "failed-payment.html";
-      },
-      onClose: function () {
-        hidePaymentSpinner();
-        alert("You closed the payment popup.");
-      }
-    });
-
   } catch (err) {
-    hidePaymentSpinner();
-    console.error("Payment error:", err);
-    alert("Error: " + err.message);
+    console.error("🔥 Checkout error:", err);
+    alert("❌ Checkout error: " + err.message);
+    // Always hide spinner if something goes wrong
+    document.getElementById("spinner").style.display = "none";
   }
-};
+}
 
-// ==============================
-// INITIALIZE ON LOAD
-// ==============================
-updateCartCount();
-renderCart();
+// ==========================
+// Initialize page
+// ==========================
+document.addEventListener("DOMContentLoaded", () => {
+  updateCartCount();
+  renderCart();
+
+  const checkoutBtn = document.getElementById("checkout-button");
+  if (checkoutBtn) checkoutBtn.addEventListener("click", checkout);
+});

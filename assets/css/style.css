@@ -500,3 +500,15 @@ button {
 button:hover {
   background: #b0212c;
 }
+
+.address-box {
+  border: 1px solid #ddd;
+  padding: 15px;
+  margin-bottom: 20px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+.address-box h3 {
+  margin-top: 0;
+  color: #e63946;
+}
