@@ -22,11 +22,30 @@
     </div>
   </header>
 
+  <!-- ADDRESS SUMMARY -->
+  <section id="address-summary"></section>
+
   <!-- CART SECTION -->
   <section id="cart">
     <h2>Your Shopping Cart</h2>
     <div id="cart-items"></div>
     <div id="cart-total"></div>
+    <div id="address-summary" class="address-box"></div>
+
+  <!-- Show address summary -->
+   <script>
+  if (address) {
+    document.getElementById("address-summary").innerHTML = `
+      <h3>Delivery Address</h3>
+      <p><strong>${address.full_name}</strong></p>
+      <p>${address.street}, ${address.city}, ${address.province}</p>
+      <p>${address.postal_code}</p>
+      <p>📞 ${address.phone}</p>
+    `;
+  }
+</script>
+
+
     <!-- Clear Cart Button -->
 <button onclick="clearCart()">Clear Cart</button>
   </section>
@@ -63,6 +82,17 @@
     100% { transform: rotate(360deg); }
   }
   </style>
+
+  <!-- Show to Client his Address Summary -->
+
+  <script>
+  // Ensure address exists
+  const address = JSON.parse(localStorage.getItem("address") || "null");
+  if (!address) {
+    window.location.href = "checkout.html";
+  }
+  </script>
+
 
   <!-- ==========================
        MIDTRANS SNAP SDK
