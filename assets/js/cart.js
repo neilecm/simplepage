@@ -1,6 +1,25 @@
 // Initialize cart from localStorage
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
+// Add item to cart
+function addToCart(name, price) {
+  // see if item already exists
+  const existing = cart.find(item => item.name === name);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({ id: name.replace(/\s+/g, "-").toLowerCase(), name, price, qty: 1 });
+  }
+
+  saveCart();
+  renderCart();
+  alert(`${name} added to cart!`);
+}
+
+// Expose globally for inline onclick usage
+window.addToCart = addToCart;
+
+
 // Update cart count in header
 function updateCartCount() {
   const count = cart.reduce((sum, item) => sum + item.qty, 0);
@@ -58,6 +77,25 @@ function removeItem(index) {
   saveCart();
   renderCart();
 }
+
+// Clear the cart completely
+function clearCart() {
+  cart = [];
+  saveCart();
+  renderCart();
+  alert("🛒 Cart cleared!");
+}
+
+// Expose for inline usage (cart.html)
+window.clearCart = clearCart;
+
+// Attach to #clear-cart button (products.html)
+document.addEventListener("DOMContentLoaded", () => {
+  const clearBtn = document.getElementById("clear-cart");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", clearCart);
+  }
+});
 
 // ==========================
 // Checkout / Midtrans logic
