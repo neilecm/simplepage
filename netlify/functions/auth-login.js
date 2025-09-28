@@ -1,64 +1,75 @@
-const bcrypt = require("bcryptjs");
-const { createClient } = require("@supabase/supabase-js");
+import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-exports.handler = async (event) => {
+export async function handler(event) {
   try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
-    }
-
     const { email, password } = JSON.parse(event.body);
 
     if (!email || !password) {
-      return { statusCode: 400, body: "Missing email or password" };
+      console.warn("❌ Missing email or password in request body");
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing email or password" }),
+      };
     }
 
-    // get user from Supabase
-    const { data: users, error } = await supabase
+    console.log("🔍 Attempting login for:", email);
+
+    // Fetch user from Supabase
+    const { data, error } = await supabase
       .from("users")
       .select("*")
       .eq("email", email)
-      .limit(1);
+      .single();
 
-    if (error) {
-      return { statusCode: 400, body: JSON.stringify({ error: error.message }) };
+    if (error || !data) {
+      console.warn("❌ User not found or query error:", error);
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: "Invalid email or password" }),
+      };
     }
 
-    if (!users || users.length === 0) {
-      return { statusCode: 401, body: JSON.stringify({ error: "User not found" }) };
+    console.log("👤 User found:", {
+      id: data.id,
+      email: data.email,
+      name: data.name,
+    });
+
+    // Compare password
+    const valid = await bcrypt.compare(password, data.password);
+    if (!valid) {
+      console.warn("❌ Invalid password for user:", email);
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: "Invalid email or password" }),
+      };
     }
 
-    const user = users[0];
+    console.log("✅ Password correct. Login successful for:", email);
 
-    // compare hashed password
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return { statusCode: 401, body: JSON.stringify({ error: "Invalid password" }) };
-    }
-
-    // success → return minimal safe user data
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: "Login successful",
         user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone
-        }
-      })
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          phone: data.phone,
+        },
+      }),
     };
-
   } catch (err) {
+    console.error("🔥 Exception in login handler:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message })
+      body: JSON.stringify({ error: "Internal server error" }),
     };
   }
-};
+}
