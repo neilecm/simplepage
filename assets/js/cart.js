@@ -86,10 +86,7 @@ function clearCart() {
   alert("🛒 Cart cleared!");
 }
 
-// Expose for inline usage (cart.html)
-window.clearCart = clearCart;
-
-// Attach to #clear-cart button (products.html)
+// Wire up clear-cart button (products.html)
 document.addEventListener("DOMContentLoaded", () => {
   const clearBtn = document.getElementById("clear-cart");
   if (clearBtn) {
@@ -182,10 +179,19 @@ async function checkout() {
 // ==========================
 // Initialize page
 // ==========================
+
+// Attach checkout button
 document.addEventListener("DOMContentLoaded", () => {
   updateCartCount();
   renderCart();
 
   const checkoutBtn = document.getElementById("checkout-button");
-  if (checkoutBtn) checkoutBtn.addEventListener("click", checkout);
+  if (checkoutBtn) {
+    checkoutBtn.addEventListener("click", () => {
+      window.location.href = "checkout.html";
+    });
+  }
 });
+
+// Expose addToCart globally for products.html
+window.addToCart = addToCart;
