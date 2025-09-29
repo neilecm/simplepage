@@ -36,7 +36,9 @@ async function saveAddress(event) {
     if (res.ok) {  
       localStorage.setItem("address", JSON.stringify(data.address));
       alert("✅ Address saved successfully!");
-      window.location.href = "cart.html";
+      // ✅ Redirects to the payment page after saving address
+      window.location.href = "payment.html";
+
     } else {
       document.getElementById("error-box").textContent =
         "❌ Error: " + (data.error || "Could not save address");
