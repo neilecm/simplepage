@@ -5,12 +5,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout</title>
   <link rel="stylesheet" href="./assets/css/style.css?v=2">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: #e63946;
+      color: white;
+      padding: 15px;
+      text-align: center;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 0 15px;
+    }
+
+    .form-container,
+    .summary-container {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      flex: 1;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    /* Form styles */
+    .form-container label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: bold;
+      color: #444;
+    }
+
+    .form-container input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    .form-container button {
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      background: #e63946;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .form-container button:hover {
+      background: #d62828;
+    }
+
+    /* Order summary */
+    .summary-container ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .summary-container li {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .summary-container .total {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-top: 10px;
+    }
+
+    /* Tablet/Desktop layout */
+    @media (min-width: 768px) {
+      main {
+        flex-direction: row;
+      }
+    }
+  </style>
 </head>
 <body>
   <header>
     <h1>Checkout</h1>
   </header>
   <main>
+    <!-- Left: Delivery Form -->
     <div class="form-container">
       <h2>Delivery Address</h2>
       <form id="checkoutForm" onsubmit="saveAddress(event)">
@@ -32,11 +132,35 @@
         <label for="phone">Phone:</label>
         <input type="tel" id="phone" required />
 
-        <button type="submit">Continue to Cart</button>
+        <button type="submit">Continue to Payment</button>
       </form>
       <div id="error-box" style="color: red; margin-top: 10px;"></div>
     </div>
+
+    <!-- Right: Order Summary -->
+    <div class="summary-container">
+      <h2>Order Summary</h2>
+      <ul id="order-summary">
+        <!-- Items will be injected by JS -->
+      </ul>
+      <div class="total" id="order-total">Total: $0</div>
+    </div>
   </main>
+  <script>
+    // Simple summary renderer (using localStorage cart)
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const summaryEl = document.getElementById("order-summary");
+    const totalEl = document.getElementById("order-total");
+
+    let total = 0;
+    cart.forEach(item => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${item.name} (x${item.qty})</span><span>$${(item.price * item.qty).toFixed(2)}</span>`;
+      summaryEl.appendChild(li);
+      total += item.price * item.qty;
+    });
+    totalEl.textContent = "Total: $" + total.toFixed(2);
+  </script>
   <script src="assets/js/checkout.js"></script>
 </body>
 </html>
