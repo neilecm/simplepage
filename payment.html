@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment</title>
+  <link rel="stylesheet" href="./assets/css/style.css?v=2">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: #e63946;
+      color: white;
+      padding: 15px;
+      text-align: center;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 0 15px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      flex: 1;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    /* Order summary */
+    .summary-container ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .summary-container li {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .summary-container .total {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-top: 10px;
+    }
+
+    /* Shipping */
+    .shipping-container select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    /* Pay button */
+    .pay-btn {
+      width: 100%;
+      margin-top: 20px;
+      padding: 14px;
+      background: #e63946;
+      color: white;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .pay-btn:hover {
+      background: #d62828;
+    }
+
+    /* Tablet/Desktop */
+    @media (min-width: 768px) {
+      main {
+        flex-direction: row;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Payment</h1>
+  </header>
+  <main>
+    <!-- Left: Order Summary -->
+    <div class="card summary-container">
+      <h2>Order Summary</h2>
+      <ul id="order-summary"></ul>
+      <div class="total" id="order-total">Products Total: $0</div>
+    </div>
+
+    <!-- Right: Shipping + Address + Payment -->
+    <div class="card shipping-container">
+      <h2>Delivery Address</h2>
+      <div id="address-box"></div>
+      <!-- Select Shipping Options -->
+      <h2>Shipping</h2>
+      <select id="shipping-options"></select>
+
+      <div class="total" id="shipping-cost">Shipping: Rp 0</div>
+
+      <h2>Grand Total</h2>
+      <div class="total" id="grand-total">Rp 0</div>
+
+      <button class="pay-btn" id="pay-now">Pay Now</button>
+    </div>
+  </main>
+
+  <script>
+    // Load cart from localStorage
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const summaryEl = document.getElementById("order-summary");
+    const totalEl = document.getElementById("order-total");
+    const shippingEl = document.getElementById("shipping-cost");
+    const grandTotalEl = document.getElementById("grand-total");
+
+    let productTotal = 0;
+    cart.forEach(item => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${item.name} (x${item.qty})</span><span>Rp ${(item.price * item.qty).toLocaleString()}</span>`;
+      summaryEl.appendChild(li);
+      productTotal += item.price * item.qty;
+    });
+    totalEl.textContent = "Products Total: Rp " + productTotal.toLocaleString();
+
+    // Load address
+    const address = JSON.parse(localStorage.getItem("address")) || {};
+    const addressBox = document.getElementById("address-box");
+    if (address.full_name) {
+      addressBox.innerHTML = `
+        <p><strong>${address.full_name}</strong></p>
+        <p>${address.street}, ${address.city}, ${address.province}</p>
+        <p>${address.postal_code}</p>
+        <p>Phone: ${address.phone}</p>
+      `;
+    } else {
+      addressBox.innerHTML = `<p style="color:red">No address found. Please go back to Checkout.</p>`;
+    }
+
+    // Shipping + Grand total
+    const shippingSelect = document.getElementById("shipping-options");
+    let shippingCost = 0;
+
+    function updateGrandTotal() {
+      const grandTotal = productTotal + shippingCost;
+      grandTotalEl.textContent = "Rp " + grandTotal.toLocaleString();
+    }
+
+    // Shipping cost listener
+    shippingSelect.addEventListener("change", e => {
+      shippingCost = parseInt(e.target.value);
+      shippingEl.textContent = "Shipping: Rp " + shippingCost.toLocaleString();
+      updateGrandTotal();
+    });
+
+    // Wire loadShipping() function
+    // async function loadShipping() {
+    //const address = JSON.parse(localStorage.getItem("address")) || {};
+    //if (!address.city) return; // make sure we have city from checkout form
+
+    // ✅ New loadShipping function
+async function loadShipping() {
+  const user = JSON.parse(localStorage.getItem("user")); // from login
+  if (!user) return;
+
+  const payload = {
+    origin: "501",
+    user_id: user.id,
+    weight: 1000,
+    courier: "jne"
+  };
+
+  const res = await fetch("/.netlify/functions/shipping", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  console.log("Shipping response:", data);
+
+  const shippingSelect = document.getElementById("shipping-options");
+  shippingSelect.innerHTML = `<option disabled selected>Select shipping</option>`;
+
+  if (data.rajaongkir && data.rajaongkir.results.length > 0) {
+    data.rajaongkir.results[0].costs.forEach(service => {
+      const cost = service.cost[0].value;
+      const option = document.createElement("option");
+      option.value = cost;
+      option.textContent = `${service.service} – Rp ${cost.toLocaleString()} (${service.cost[0].etd} days)`;
+      shippingSelect.appendChild(option);
+    });
+  }
+}
+
+// call it once page loads
+loadShipping();
+
+
+    // Pay button
+    document.getElementById("pay-now").addEventListener("click", async () => {
+  if (!shippingCost) {
+    alert("Please select a shipping method");
+    return;
+  }
+
+  const address = JSON.parse(localStorage.getItem("address")) || {};
+  const items = cart.map(item => ({
+    id: item.id,
+    price: item.price,
+    quantity: item.qty,
+    name: item.name
+  }));
+
+  const payload = {
+    amount: productTotal + shippingCost,
+    address,
+    items
+  };
+
+  const res = await fetch("/.netlify/functions/payment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  console.log("Midtrans response:", data);
+
+  if (data.token) {
+    // Load Snap.js from Midtrans
+    const script = document.createElement("script");
+    script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+    script.setAttribute("data-client-key", "Mid-client-z5imH2Dt1I-CSOr8"); // replace with Midtrans Client Key
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      window.snap.pay(data.token, {
+        onSuccess: function(result) {
+          window.location.href = "success-payment.html";
+        },
+        onPending: function(result) {
+          window.location.href = "pending-payment.html";
+        },
+        onError: function(result) {
+          window.location.href = "failed-payment.html";
+        }
+      });
+    };
+  } else {
+    alert("Failed to start payment. Check console.");
+  }
+});
+
+    // Initialize grand total
+    updateGrandTotal();
+  </script>
+</body>
+</html>
