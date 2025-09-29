@@ -1,12 +1,21 @@
 # netlify.toml
 
 [build]
-  publish = "."                # folder where your static site (cart.html etc) lives
-  functions = "netlify/functions"  # path to serverless functions
-
-# Optional: set build command (only if you need one)
-# build = "npm run build"
+  publish = "."                     # your static site root
+  functions = "netlify/functions"   # path to serverless functions
+  command = "npm run build"         # optional (you can remove if no build step)
 
 [dev]
   functions = "netlify/functions"
   publish = "."
+
+[functions]
+  node_bundler = "esbuild"          # modern bundler
+  external_node_modules = [
+    "@supabase/supabase-js",
+    "midtrans-client",
+    "bcryptjs"
+  ]
+
+[functions.environment]
+  NODE_VERSION = "20"
