@@ -35,56 +35,88 @@ export async function handler(event) {
     console.log("📦 Using city:", cityName);
 
     // 2. Fetch RajaOngkir city list
-    const cityRes = await fetch("https://api.rajaongkir.com/starter/city", {
-      headers: { key: process.env.RAJAONGKIR_KEY }
-    });
-    const cityData = await cityRes.json();
+    //const cityRes = await fetch("https://api.rajaongkir.com/starter/city", {
+    //  headers: { key: process.env.RAJAONGKIR_KEY }
+    //});
+    //const cityData = await cityRes.json();
 
-    const normalize = s =>
-      s.toLowerCase().replace("kota ", "").replace("kabupaten ", "").trim();
+    //const normalize = s =>
+    //  s.toLowerCase().replace("kota ", "").replace("kabupaten ", "").trim();
 
-    const match = cityData.rajaongkir.results.find(
-      c => normalize(c.city_name) === normalize(cityName)
-    );
+    //const match = cityData.rajaongkir.results.find(
+    //  c => normalize(c.city_name) === normalize(cityName)
+    //);
 
-    if (!match) {
-      console.error("City not found in RajaOngkir:", cityName);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: `City not found: ${cityName}` })
-      };
-    }
+    //if (!match) {
+    //  console.error("City not found in RajaOngkir:", cityName);
+    //  return {
+    //    statusCode: 404,
+    //    body: JSON.stringify({ error: `City not found: ${cityName}` })
+    //  };
+    //}
 
-    const destination = match.city_id;
-    console.log(`✅ Mapped ${cityName} → city_id ${destination}`);
+    //const destination = match.city_id;
+    //console.log(`✅ Mapped ${cityName} → city_id ${destination}`);
 
     // 3. Fetch RajaOngkir shipping cost
-    const costRes = await fetch("https://api.rajaongkir.com/starter/cost", {
-      method: "POST",
-      headers: {
-        key: process.env.RAJAONGKIR_KEY,
-        "content-type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({
-        origin,
-        destination,
-        weight,
-        courier
-      })
-    });
+    //const costRes = await fetch("https://api.rajaongkir.com/starter/cost", {
+    //  method: "POST",
+    //  headers: {
+    //    key: process.env.RAJAONGKIR_KEY,
+    //    "content-type": "application/x-www-form-urlencoded"
+    //  },
+    //  body: new URLSearchParams({
+    //    origin,
+    //    destination,
+    //    weight,
+    //    courier
+    //  })
+    //});
 
-    const costData = await costRes.json();
-    console.log("🚚 Shipping options:", costData);
+    //const costData = await costRes.json();
+    //console.log("🚚 Shipping options:", costData);
+
+    //return {
+    //  statusCode: 200,
+    //  body: JSON.stringify(costData)
+    //};
+  //} catch (error) {
+    //console.error("Shipping error:", error);
+    //return {
+    //  statusCode: 500,
+    //  body: JSON.stringify({ error: "Internal Server Error" })
+    //};
+  //}
+//}
+
+exports.handler = async (event) => {
+  try {
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
+    }
+
+    const { city_id, weight, couriers } = JSON.parse(event.body);
+
+    if (!city_id) {
+      return { statusCode: 400, body: JSON.stringify({ error: "City ID required" }) };
+    }
+
+    // Mock shipping costs (replace with RajaOngkir API when live)
+    const mockShipping = [
+      { courier: "jne", service: "REG", price: 20000, etd: "2-3 days" },
+      { courier: "jnt", service: "EZ", price: 22000, etd: "2 days" },
+      { courier: "pos", service: "Kilat", price: 18000, etd: "3-4 days" }
+    ];
 
     return {
       statusCode: 200,
-      body: JSON.stringify(costData)
+      body: JSON.stringify({
+        address: { city_id, city_name: "Mock City", province: "Mock Province" },
+        shipping: mockShipping
+      })
     };
-  } catch (error) {
-    console.error("Shipping error:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Internal Server Error" })
-    };
+  } catch (err) {
+    console.error("❌ Shipping error:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: "Internal Server Error" }) };
   }
-}
+};

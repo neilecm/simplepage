@@ -98,3 +98,50 @@ async function saveAddress(event) {
   }
 }
 
+      // Send Data to Nelify Function to Create Order Record
+      async function submitOrder() {
+  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+  const shippingSelection = JSON.parse(localStorage.getItem("shippingSelection") || "{}");
+
+  const body = {
+    name: document.getElementById("name").value,
+    email: document.getElementById("email").value,
+    phone: document.getElementById("phone").value,
+    address: document.getElementById("address").value,
+    city_id: document.getElementById("city").value,
+    city_name: document.getElementById("city").selectedOptions[0].text,
+    province: "Mock Province", // TODO: pull from your city dataset
+    postal: document.getElementById("postal").value,
+    cart,
+    shipping: shippingSelection
+  };
+
+  const res = await fetch("/.netlify/functions/create-order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  if (data.success) {
+    localStorage.setItem("currentOrder", JSON.stringify(data.order));
+
+    // Open Midtrans Snap popup
+    window.snap.pay(data.snapToken, {
+      onSuccess: function(result) {
+        alert("Payment success!");
+        console.log(result);
+      },
+      onPending: function(result) {
+        alert("Payment pending!");
+        console.log(result);
+      },
+      onError: function(result) {
+        alert("Payment failed!");
+        console.log(result);
+      }
+    });
+  } else {
+    alert("Error creating order: " + data.error);
+  }
+}

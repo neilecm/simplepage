@@ -120,8 +120,14 @@
         <label for="street">Street Address:</label>
         <input type="text" id="street" required />
 
-        <label for="city">City:</label>
-        <input type="text" id="city" required />
+        <label for="city">Select City</label>
+        <select id="city"></select>
+
+        <div id="shipping-options">
+        <p>Select a city to load shipping options.</p>
+        </div>
+        <p id="order-total">Total: Rp 0</p>
+
 
         <label for="province">Province:</label>
         <input type="text" id="province" required />
@@ -162,5 +168,11 @@
     totalEl.textContent = "Total: $" + total.toFixed(2);
   </script>
   <script src="assets/js/checkout.js"></script>
+  <script src="assets/js/cities.js"></script>
+  <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="YOUR_MIDTRANS_CLIENT_KEY"></script>
+
+
+</script>
+
 </body>
 </html>
