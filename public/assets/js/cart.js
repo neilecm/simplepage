@@ -1,26 +1,40 @@
 // Initialize cart from localStorage
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-// Add item to cart
-function addToCart(name, price, weight = 100) {
-  // find if item already exists
-  const existing = cart.find(item => item.name === name);
+function addToCart(name, price, weight) {
+  // normalize inputs
+  const p = Number(price) || 0;
+  const w = Number(weight);
+  const normalizedWeight = Number.isFinite(w) && w > 0 ? Math.round(w) : 250; // grams fallback
+  const id = name.trim().toLowerCase().replace(/\s+/g, "-");
+
+  // find existing by stable id (safer than name)
+  const existing = cart.find(item => item.id === id);
+
   if (existing) {
-    existing.qty += 1;
+    existing.qty = (Number(existing.qty) || 0) + 1;
+
+    // patch missing/invalid fields on old items
+    if (!(Number(existing.price) > 0))  existing.price  = p;
+    if (!(Number(existing.weight) > 0)) existing.weight = normalizedWeight;
   } else {
     cart.push({
-      id: name.replace(/\s+/g, "-").toLowerCase(),
+      id,
       name,
-      price,
+      price: p,
       qty: 1,
-      weight // in grams
+      weight: normalizedWeight, // grams
     });
   }
 
   saveCart();
-  renderCart();
-  alert(`${name} added to cart!`);
+  if (typeof updateCartCount === "function") updateCartCount();
+  if (typeof renderCart === "function") renderCart();
+
+  // optional; alerts can be annoying on mobile:
+  // alert(`${name} added to cart!`);
 }
+
 
 // Expose globally for inline onclick usage
 window.addToCart = addToCart;
