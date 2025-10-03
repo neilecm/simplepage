@@ -1,16 +1,13 @@
-# netlify.toml
-
 [build]
-  publish = "."                     # your static site root
-  functions = "netlify/functions"   # path to serverless functions
-  command = "npm run build"         # optional (you can remove if no build step)
+  publish = "public"                 # <-- serve files from public/
+  functions = "netlify/functions"    # serverless functions folder
 
 [dev]
   functions = "netlify/functions"
-  publish = "."
+  publish = "public"
 
 [functions]
-  node_bundler = "esbuild"          # modern bundler
+  node_bundler = "esbuild"
   external_node_modules = [
     "@supabase/supabase-js",
     "midtrans-client",
