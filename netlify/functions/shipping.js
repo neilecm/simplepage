@@ -1,122 +1,129 @@
 // netlify/functions/shipping.js
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-export async function handler(event) {
-  try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
-    }
-
-    const { origin, user_id, weight, courier } = JSON.parse(event.body);
-
-    // 1. Fetch the most recent address for this user from Supabase
-    const { data: addressData, error } = await supabase
-      .from("addresses")
-      .select("*")
-      .eq("user_id", user_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error || !addressData) {
-      console.error("Supabase address error:", error);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: "Address not found" })
-      };
-    }
-
-    const cityName = addressData.city;
-    console.log("📦 Using city:", cityName);
-
-    // 2. Fetch RajaOngkir city list
-    //const cityRes = await fetch("https://api.rajaongkir.com/starter/city", {
-    //  headers: { key: process.env.RAJAONGKIR_KEY }
-    //});
-    //const cityData = await cityRes.json();
-
-    //const normalize = s =>
-    //  s.toLowerCase().replace("kota ", "").replace("kabupaten ", "").trim();
-
-    //const match = cityData.rajaongkir.results.find(
-    //  c => normalize(c.city_name) === normalize(cityName)
-    //);
-
-    //if (!match) {
-    //  console.error("City not found in RajaOngkir:", cityName);
-    //  return {
-    //    statusCode: 404,
-    //    body: JSON.stringify({ error: `City not found: ${cityName}` })
-    //  };
-    //}
-
-    //const destination = match.city_id;
-    //console.log(`✅ Mapped ${cityName} → city_id ${destination}`);
-
-    // 3. Fetch RajaOngkir shipping cost
-    //const costRes = await fetch("https://api.rajaongkir.com/starter/cost", {
-    //  method: "POST",
-    //  headers: {
-    //    key: process.env.RAJAONGKIR_KEY,
-    //    "content-type": "application/x-www-form-urlencoded"
-    //  },
-    //  body: new URLSearchParams({
-    //    origin,
-    //    destination,
-    //    weight,
-    //    courier
-    //  })
-    //});
-
-    //const costData = await costRes.json();
-    //console.log("🚚 Shipping options:", costData);
-
-    //return {
-    //  statusCode: 200,
-    //  body: JSON.stringify(costData)
-    //};
-  //} catch (error) {
-    //console.error("Shipping error:", error);
-    //return {
-    //  statusCode: 500,
-    //  body: JSON.stringify({ error: "Internal Server Error" })
-    //};
-  //}
-//}
+const BASE_URL = "https://rajaongkir.komerce.id/api/v1";
+const API_KEY = process.env.RAJAONGKIR_API_KEY;
+const DELIVERY_KEY = process.env.RAJAONGKIR_DELIVERY_KEY; // if you use delivery tracking
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
+    const { type } = event.queryStringParameters || {};
+    let url = "";
+    let options = { headers: { key: API_KEY } };
+
+    // ---- Provinces ----
+    if (type === "province") {
+      url = `${BASE_URL}/destination/province`;
+      options.method = "GET";
     }
 
-    const { city_id, weight, couriers } = JSON.parse(event.body);
-
-    if (!city_id) {
-      return { statusCode: 400, body: JSON.stringify({ error: "City ID required" }) };
+    // ---- Cities (by province ID) ----
+    else if (type === "city") {
+      const { province } = event.queryStringParameters || {};
+      if (!province) {
+        return { statusCode: 400, body: JSON.stringify({ error: "Missing province parameter" }) };
+      }
+      url = `${BASE_URL}/destination/city/${encodeURIComponent(province)}`;
+      options.method = "GET";
     }
 
-    // Mock shipping costs (replace with RajaOngkir API when live)
-    const mockShipping = [
-      { courier: "jne", service: "REG", price: 20000, etd: "2-3 days" },
-      { courier: "jnt", service: "EZ", price: 22000, etd: "2 days" },
-      { courier: "pos", service: "Kilat", price: 18000, etd: "3-4 days" }
-    ];
+    // ---- Districts (by city ID) ----
+    else if (type === "district") {
+      const { city } = event.queryStringParameters || {};
+      if (!city) {
+        return { statusCode: 400, body: JSON.stringify({ error: "Missing city parameter" }) };
+      }
+      url = `${BASE_URL}/destination/district/${encodeURIComponent(city)}`;
+      options.method = "GET";
+    }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        address: { city_id, city_name: "Mock City", province: "Mock Province" },
-        shipping: mockShipping
-      })
-    };
+    // ---- Subdistricts (by district ID) ----
+    else if (type === "subdistrict") {
+      const { district } = event.queryStringParameters || {};
+      if (!district) {
+        return { statusCode: 400, body: JSON.stringify({ error: "Missing district parameter" }) };
+      }
+      // NOTE: endpoint is sub-district with a hyphen
+      url = `${BASE_URL}/destination/sub-district/${encodeURIComponent(district)}`;
+      options.method = "GET";
+    }
+
+    // ---- Shipping Cost (district-based, step-by-step method) ----
+    else if (type === "cost") {
+      const body = JSON.parse(event.body || "{}");
+
+      // Accept "jne", "jne,tiki" or ["jne","tiki"] and turn into colon-separated string
+      let courierString = "";
+      if (Array.isArray(body.courier)) {
+        courierString = body.courier.map(String).map(s => s.trim()).filter(Boolean).join(":");
+      } else if (typeof body.courier === "string") {
+        // allow comma- or colon-separated in input
+        courierString = body.courier
+          .split(/[,:\s]+/)
+          .map(s => s.trim())
+          .filter(Boolean)
+          .join(":");
+      }
+
+      const form = new URLSearchParams();
+      form.set("origin",      String(body.origin || ""));
+      form.set("destination", String(body.destination || ""));
+      form.set("weight",      String(Number(body.weight || 0)));
+      if (courierString) form.set("courier", courierString);
+      // optional:
+      // form.set("price", "lowest");
+
+      url = `${BASE_URL}/calculate/district/domestic-cost`;
+      options.method = "POST";
+      options.headers = {
+        key: API_KEY,
+        "Content-Type": "application/x-www-form-urlencoded",
+      };
+      options.body = form.toString();
+    }
+
+    // ---- Delivery tracking (leave if you use it) ----
+    else if (type === "delivery") {
+      const body = JSON.parse(event.body || "{}");
+      url = `${BASE_URL}/delivery/track`;
+      options.method = "POST";
+      options.headers = { key: DELIVERY_KEY, "Content-Type": "application/json" };
+      options.body = JSON.stringify({ waybill: body.waybill, courier: body.courier });
+    }
+
+    // ---- Delivery Tracking ----
+    else if (type === "delivery") {
+      const body = JSON.parse(event.body || "{}");
+      url = `${BASE_URL}/delivery/track`;
+      options.method = "POST";
+      options.headers = { key: DELIVERY_KEY, "Content-Type": "application/json" };
+      options.body = JSON.stringify({
+        waybill: body.waybill,
+        courier: body.courier,
+      });
+    }
+
+
+    // ---- Invalid type ----
+    else {
+      return { statusCode: 400, body: JSON.stringify({ error: "Invalid type parameter" }) };
+    }
+
+    // Debug: see exactly what we call
+    console.log("→", options.method, url);
+
+    const res = await fetch(url, options);
+
+    if (!res.ok) {
+      const raw = await res.text().catch(() => "");
+      console.error("❌ RajaOngkir non-200:", res.status, raw);
+      return { statusCode: res.status, body: raw || JSON.stringify({ error: `HTTP ${res.status}` }) };
+    }
+
+    const data = await res.json();
+    return { statusCode: 200, body: JSON.stringify(data) };
+
   } catch (err) {
-    console.error("❌ Shipping error:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: "Internal Server Error" }) };
+    console.error("❌ Shipping API error:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };

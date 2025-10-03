@@ -107,40 +107,66 @@
 </head>
 <body>
   <header>
-    <h1>Checkout</h1>
-  </header>
+  <h1><a href="index.html" style="color: white; text-decoration: none;">My Shop</a></h1>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="products.html">Products</a>
+    <a href="checkout.html" style="color:#ffeb3b;">Checkout</a>
+    <a href="track.html">Track Order</a>
+    <a href="cart.html">🛒 Cart (<span id="cart-count">0</span>)</a>
+  </nav>
+</header>
   <main>
     <!-- Left: Delivery Form -->
     <div class="form-container">
       <h2>Delivery Address</h2>
-      <form id="checkoutForm" onsubmit="saveAddress(event)">
-        <label for="full_name">Full Name:</label>
-        <input type="text" id="full_name" required />
+<form id="checkoutForm" onsubmit="saveAddress(event)">
+  <label for="full_name">Full Name:</label>
+  <input type="text" id="full_name" required />
 
-        <label for="street">Street Address:</label>
-        <input type="text" id="street" required />
+  <label for="street">Street Address:</label>
+  <input type="text" id="street" required />
 
-        <label for="city">Select City</label>
-        <select id="city"></select>
+  <label for="province">Select Province</label>
+<select id="province" required>
+  <option value="">-- Select Province --</option>
+</select>
 
-        <div id="shipping-options">
-        <p>Select a city to load shipping options.</p>
-        </div>
-        <p id="order-total">Total: Rp 0</p>
+<label for="city">Select City</label>
+<select id="city" required>
+  <option value="">-- Select City --</option>
+</select>
 
+<label for="district">Select District</label>
+<select id="district" required>
+  <option value="">-- Select District --</option>
+</select>
 
-        <label for="province">Province:</label>
-        <input type="text" id="province" required />
+<label for="courier">Select Courier</label>
+<select id="courier" required>
+  <option value="">-- Select Courier --</option>
+  <option value="jne">JNE</option>
+  <option value="tiki">TIKI</option>
+  <option value="pos">POS</option>
+</select>
 
-        <label for="postal_code">Postal Code:</label>
-        <input type="text" id="postal_code" required />
+<label for="subdistrict">Select Subdistrict</label>
+<select id="subdistrict">
+  <option value="">-- Select Subdistrict --</option>
+</select>
 
-        <label for="phone">Phone:</label>
-        <input type="tel" id="phone" required />
+<div id="shipping-options"><p>No shipping options found.</p></div>
 
-        <button type="submit">Continue to Payment</button>
-      </form>
-      <div id="error-box" style="color: red; margin-top: 10px;"></div>
+  <label for="postal_code">Postal Code:</label>
+  <input type="text" id="postal_code" required />
+
+  <label for="phone">Phone:</label>
+  <input type="tel" id="phone" required />
+
+  <button type="submit">Continue to Payment</button>
+</form>
+<div id="error-box" style="color: red; margin-top: 10px;"></div>
+
     </div>
 
     <!-- Right: Order Summary -->
@@ -149,27 +175,20 @@
       <ul id="order-summary">
         <!-- Items will be injected by JS -->
       </ul>
-      <div class="total" id="order-total">Total: $0</div>
+      <div class="total" id="order-total">Total: Rp 0</div>
     </div>
   </main>
-  <script>
-    // Simple summary renderer (using localStorage cart)
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const summaryEl = document.getElementById("order-summary");
-    const totalEl = document.getElementById("order-total");
 
-    let total = 0;
-    cart.forEach(item => {
-      const li = document.createElement("li");
-      li.innerHTML = `<span>${item.name} (x${item.qty})</span><span>$${(item.price * item.qty).toFixed(2)}</span>`;
-      summaryEl.appendChild(li);
-      total += item.price * item.qty;
-    });
-    totalEl.textContent = "Total: $" + total.toFixed(2);
-  </script>
-  <script src="assets/js/checkout.js"></script>
-  <script src="assets/js/cities.js"></script>
-  <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="YOUR_MIDTRANS_CLIENT_KEY"></script>
+  <!-- Cart logic (defines renderCart, updateCartCount, etc.) -->
+<script src="assets/js/cart.js"></script>
+
+<!-- Checkout logic (depends on cart.js) -->
+<script src="assets/js/checkout.js"></script>
+
+  <script src="https://app.sandbox.midtrans.com/snap/snap.js"
+        data-client-key="YOUR-MIDTRANS-CLIENT-KEY"></script>
+
+
 
 
 </script>

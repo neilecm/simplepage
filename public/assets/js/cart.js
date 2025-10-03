@@ -2,13 +2,19 @@
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
 // Add item to cart
-function addToCart(name, price) {
-  // see if item already exists
+function addToCart(name, price, weight = 100) {
+  // find if item already exists
   const existing = cart.find(item => item.name === name);
   if (existing) {
     existing.qty += 1;
   } else {
-    cart.push({ id: name.replace(/\s+/g, "-").toLowerCase(), name, price, qty: 1 });
+    cart.push({
+      id: name.replace(/\s+/g, "-").toLowerCase(),
+      name,
+      price,
+      qty: 1,
+      weight // in grams
+    });
   }
 
   saveCart();
@@ -195,3 +201,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Expose addToCart globally for products.html
 window.addToCart = addToCart;
+
+// On DOM load, update cart UI
+document.addEventListener("DOMContentLoaded", () => {
+  updateCartCount();
+  renderCart();
+});
