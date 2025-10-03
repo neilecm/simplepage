@@ -215,30 +215,39 @@ function updateTotalPreview(shippingCost, courier, service, etd) {
 
 // ---- Render Order Summary ----
 function renderOrderSummary() {
-  const cart = JSON.parse(localStorage.getItem("cart")) || [];
-  const summaryEl = document.getElementById("order-summary");
+  const ul      = document.getElementById("order-summary");
   const totalEl = document.getElementById("order-total");
+  if (!ul || !totalEl) return;              // not on this page yet
 
-  summaryEl.innerHTML = "";
-  let subtotal = 0;
+  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+  const formatIDR = n => Number(n||0).toLocaleString("id-ID");
 
-  cart.forEach((item) => {
-    const li = document.createElement("li");
-    li.textContent = `${item.name} (x${item.qty}) - Rp ${(item.price * item.qty).toLocaleString()}`;
-    summaryEl.appendChild(li);
-    subtotal += item.price * item.qty;
+  const itemsSubtotal = cart.reduce((s,i)=> s + (Number(i.price)||0)*(Number(i.qty)||1), 0);
+  const ship = Number(JSON.parse(localStorage.getItem("selectedShipping")||"null")?.price) || 0;
+
+  ul.innerHTML = "";
+  cart.forEach(i => {
+    ul.insertAdjacentHTML("beforeend",
+      `<li><span>${i.name} x${i.qty}</span><span>Rp ${formatIDR((i.price||0)*(i.qty||1))}</span></li>`);
   });
+  ul.insertAdjacentHTML("beforeend",
+    `<li><strong>Shipping</strong><strong>Rp ${formatIDR(ship)}</strong></li>`);
 
-  totalEl.textContent = "Total: Rp " + subtotal.toLocaleString();
+  totalEl.textContent = `Total: Rp ${formatIDR(itemsSubtotal + ship)}`;
 }
 
-// ---- Init ----
+// IMPORTANT: only call after DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
-  // Safe calls if cart.js is present
-  if (typeof updateCartCount === "function") updateCartCount();
-  if (typeof renderCart === "function") renderCart();
+  renderOrderSummary();
+});
 
-  // ----- DOM refs -----
+
+
+// ---- Init ----
+
+  document.addEventListener("DOMContentLoaded", async () => {
+
+  // ===== DOM REFS (must exist in checkout.html) =====
   const provinceSelect     = document.getElementById("province");
   const citySelect         = document.getElementById("city");
   const districtSelect     = document.getElementById("district");
@@ -246,132 +255,261 @@ document.addEventListener("DOMContentLoaded", () => {
   const courierSelect      = document.getElementById("courier");
   const shippingOptionsDiv = document.getElementById("shipping-options");
   const errorBox           = document.getElementById("error-box");
+  const orderList          = document.getElementById("order-summary");
+  const orderTotalEl       = document.getElementById("order-total");
 
-  // ----- Config (set your warehouse district_id) -----
-  const WAREHOUSE_DISTRICT_ID = "501"; // TODO: change to your real warehouse district_id
-
-  // ----- Helpers -----
-  function computeCartWeight() {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const total = cart.reduce((sum, it) => {
-      const w = Number(it.weight) || 250; // 250g fallback/item
-      const q = Number(it.qty)    || 1;
-      return sum + w * q;
-    }, 0);
-    return total > 0 ? total : 1000; // 1kg fallback
+  // bail early if key nodes are missing (prevents cryptic errors)
+  if (!provinceSelect || !citySelect || !districtSelect || !courierSelect || !shippingOptionsDiv || !orderList || !orderTotalEl) {
+    console.error("checkout.js: Missing one or more required DOM elements. Check IDs in checkout.html.");
+    return;
   }
 
-  // Single fetch helper (don’t duplicate this elsewhere)
+  // ===== CONFIG =====
+  const WAREHOUSE_DISTRICT_ID = "501"; // TODO: change to your real warehouse district_id
+  const DBG = true;                    // set to false to silence logs
+
+  // ===== UTILS =====
+  const log = (...a) => DBG && console.log("[checkout]", ...a);
+  const formatIDR = (n) => Number(n || 0).toLocaleString("id-ID");
+  const getCart   = () => JSON.parse(localStorage.getItem("cart") || "[]");
+
   async function fetchData(type, params = {}, body = null) {
     try {
-      const url = new URL("/.netlify/functions/shipping", window.location.origin);
+      const url = new URL(`/.netlify/functions/shipping`, window.location.origin);
       url.searchParams.set("type", type);
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-      const res = await fetch(url.toString(), {
+      const res = await fetch(url, {
         method: body ? "POST" : "GET",
         headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
 
-      const json = await res.json();
-      if (!res.ok || json?.error) throw new Error(json?.error || `HTTP ${res.status}`);
-      // Enterprise responses: { meta, data: [...] }
-      return json.data || [];
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch (e) {
+        throw new Error(`Invalid JSON from function (${type}): ${text?.slice(0, 200)}`);
+      }
+      if (!res.ok || data?.error) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      return data.data || []; // your functions return { meta, data }
     } catch (err) {
-      console.error(`❌ Fetch ${type} error:`, err);
+      console.error(`❌ fetchData(${type}) error:`, err);
       if (errorBox) errorBox.textContent = err.message;
       return [];
     }
   }
 
-  // ----- Cascading loaders -----
+  function computeCartWeight() {
+    const cart = getCart();
+    const total = cart.reduce((sum, it) => {
+      const w = Number(it?.weight) > 0 ? Number(it.weight) : 250; // grams fallback
+      const q = Number(it?.qty)    > 0 ? Number(it.qty)    : 1;
+      return sum + w * q;
+    }, 0);
+    return Math.max(1000, Math.round(total)); // never 0; min 1kg
+  }
+
+  // cost extractor that handles numeric cost or array/object shapes
+  function extractPrice(opt) {
+    const candidates = [
+      opt?.cost?.[0]?.value,
+      opt?.cost?.value,
+      typeof opt?.cost === "number" ? opt.cost : undefined,
+      opt?.price, opt?.value, opt?.tariff, opt?.amount,
+      opt?.total_cost ?? opt?.total ?? opt?.grand_total
+    ].filter(v => v !== undefined);
+
+    for (const c of candidates) {
+      const n = Number(String(c).replace(/[^\d.-]/g, ""));
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+    if (Array.isArray(opt?.cost)) {
+      for (const c of opt.cost) {
+        const n = Number(String(c?.value).replace(/[^\d.-]/g, ""));
+        if (Number.isFinite(n) && n >= 0) return n;
+      }
+    }
+    return 0;
+  }
+  const extractETD = (opt) => opt?.cost?.[0]?.etd || opt?.etd || opt?.estimate || "";
+
+  // ===== ORDER SUMMARY =====
+  function renderOrderSummary() {
+    const cart = getCart();
+    const selected = JSON.parse(localStorage.getItem("selectedShipping") || "null");
+    const ship = Number(selected?.price) || 0;
+
+    const items = cart.map(i => ({
+      label: `${i.name} x${Number(i.qty) || 1}`,
+      amount: (Number(i.price) || 0) * (Number(i.qty) || 1),
+    }));
+    const sub = items.reduce((s, x) => s + x.amount, 0);
+
+    orderList.innerHTML = "";
+    if (items.length === 0) {
+      orderList.insertAdjacentHTML("beforeend", `<li><span>No items</span><span>Rp 0</span></li>`);
+    } else {
+      items.forEach(i => {
+        orderList.insertAdjacentHTML("beforeend",
+          `<li><span>${i.label}</span><span>Rp ${formatIDR(i.amount)}</span></li>`);
+      });
+    }
+    orderList.insertAdjacentHTML("beforeend",
+      `<li><strong>Shipping</strong><strong>Rp ${formatIDR(ship)}</strong></li>`);
+
+    const grand = sub + ship;
+    orderTotalEl.textContent = `Total: Rp ${formatIDR(grand)}`;
+
+    // keep a compact summary for the payment step
+    localStorage.setItem("checkoutSummary", JSON.stringify({ itemsSubtotal: sub, shippingAmount: ship, grand }));
+  }
+
+  // ===== SHIPPING OPTIONS RENDERER =====
+  function renderShippingOptions(costData, courier) {
+    if (!Array.isArray(costData) || costData.length === 0) {
+      shippingOptionsDiv.innerHTML = "<p>No shipping options found.</p>";
+      localStorage.removeItem("selectedShipping");
+      renderOrderSummary();
+      return;
+    }
+
+    const saved = JSON.parse(localStorage.getItem("selectedShipping") || "null");
+    let html = "<h4>Available Shipping Options</h4><div>";
+
+    costData.forEach((opt, idx) => {
+      const service = opt.service || opt.code || opt.name || "(service)";
+      const price   = extractPrice(opt);
+      const etd     = extractETD(opt);
+      const id      = `ship_${courier}_${service}_${idx}`;
+      const checked =
+        saved && saved.courier === courier &&
+        saved.service === service &&
+        Number(saved.price) === Number(price) ? "checked" : "";
+
+      html += `
+<label style="display:block;margin:6px 0;">
+  <input type="radio" name="shippingOption"
+         id="${id}"
+         value="${service}"
+         data-courier="${courier}"
+         data-service="${service}"
+         data-price="${price}"
+         data-etd="${etd}"
+         ${checked}>
+  ${courier.toUpperCase()} - ${service} : Rp ${formatIDR(price)}${etd ? ` (ETD: ${etd})` : ""}
+</label>`;
+    });
+
+    html += "</div>";
+    shippingOptionsDiv.innerHTML = html;
+
+    // persist selection & refresh summary
+    shippingOptionsDiv.querySelectorAll('input[name="shippingOption"]').forEach(r => {
+      r.addEventListener("change", e => {
+        const t = e.target;
+        localStorage.setItem("selectedShipping", JSON.stringify({
+          courier: t.dataset.courier,
+          service: t.dataset.service,
+          price:   Number(t.dataset.price),
+          etd:     t.dataset.etd
+        }));
+        renderOrderSummary();
+      });
+    });
+
+    renderOrderSummary(); // reflect preselected saved option
+  }
+
+  // ===== LOADERS =====
   async function loadProvinces() {
     const provinces = await fetchData("province");
     provinceSelect.innerHTML = `<option value="">-- Select Province --</option>`;
-    provinces.forEach(p => {
-      provinceSelect.insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
-    });
-    if (shippingOptionsDiv) shippingOptionsDiv.innerHTML = `<p>No shipping options found.</p>`;
+    provinces.forEach(p => provinceSelect.insertAdjacentHTML("beforeend",
+      `<option value="${p.id}">${p.name}</option>`));
+    log("provinces:", provinces.length);
   }
 
   async function loadCities(provinceId) {
     const cities = await fetchData("city", { province: provinceId });
-    citySelect.innerHTML         = `<option value="">-- Select City --</option>`;
-    districtSelect.innerHTML     = `<option value="">-- Select District --</option>`;
-    if (subdistrictSelect) subdistrictSelect.innerHTML = `<option value="">-- Select Subdistrict --</option>`;
-    cities.forEach(c => {
-      citySelect.insertAdjacentHTML("beforeend", `<option value="${c.id}">${c.name}</option>`);
-    });
-    if (shippingOptionsDiv) shippingOptionsDiv.innerHTML = `<p>No shipping options found.</p>`;
+    citySelect.innerHTML        = `<option value="">-- Select City --</option>`;
+    districtSelect.innerHTML    = `<option value="">-- Select District --</option>`;
+    subdistrictSelect.innerHTML = `<option value="">-- Select Subdistrict --</option>`;
+    cities.forEach(c => citySelect.insertAdjacentHTML("beforeend",
+      `<option value="${c.id}">${c.name}</option>`));
+    log("cities:", cities.length);
   }
 
   async function loadDistricts(cityId) {
     const districts = await fetchData("district", { city: cityId });
-    districtSelect.innerHTML     = `<option value="">-- Select District --</option>`;
-    if (subdistrictSelect) subdistrictSelect.innerHTML = `<option value="">-- Select Subdistrict --</option>`;
-    districts.forEach(d => {
-      districtSelect.insertAdjacentHTML("beforeend", `<option value="${d.id}">${d.name}</option>`);
-    });
-    if (shippingOptionsDiv) shippingOptionsDiv.innerHTML = `<p>No shipping options found.</p>`;
+    districtSelect.innerHTML    = `<option value="">-- Select District --</option>`;
+    subdistrictSelect.innerHTML = `<option value="">-- Select Subdistrict --</option>`;
+    districts.forEach(d => districtSelect.insertAdjacentHTML("beforeend",
+      `<option value="${d.id}">${d.name}</option>`));
+    log("districts:", districts.length);
   }
 
   async function loadSubdistricts(districtId) {
-    if (!subdistrictSelect) return;
     const subs = await fetchData("subdistrict", { district: districtId });
     subdistrictSelect.innerHTML = `<option value="">-- Select Subdistrict --</option>`;
-    subs.forEach(s => {
-      subdistrictSelect.insertAdjacentHTML("beforeend", `<option value="${s.id}">${s.name}</option>`);
-    });
+    subs.forEach(s => subdistrictSelect.insertAdjacentHTML("beforeend",
+      `<option value="${s.id}">${s.name}</option>`));
+    log("subdistricts:", subs.length);
   }
 
-  // ----- Shipping cost after District + Courier -----
   async function loadShippingCost() {
     const districtId = districtSelect.value;
-    const courier    = courierSelect ? courierSelect.value : "";
-
+    const courier    = courierSelect.value;
     if (!districtId || !courier) {
-      if (shippingOptionsDiv) shippingOptionsDiv.innerHTML = "<p>No shipping options found.</p>";
+      shippingOptionsDiv.innerHTML = "<p>No shipping options found.</p>";
+      localStorage.removeItem("selectedShipping");
+      renderOrderSummary();
       return;
     }
 
-    if (shippingOptionsDiv) shippingOptionsDiv.innerHTML = "<p>Loading shipping options...</p>";
+    shippingOptionsDiv.innerHTML = "<p>Loading shipping options...</p>";
 
     const payload = {
-      origin:      WAREHOUSE_DISTRICT_ID, // warehouse district_id
-      destination: districtId,            // user-selected district
-      weight:      computeCartWeight(),   // grams
-      courier: courierSelect.value // e.g. "jne"  (or "jne,tiki" if you allow multi)
+      origin:      WAREHOUSE_DISTRICT_ID,
+      destination: districtId,
+      weight:      computeCartWeight(),
+      courier
     };
 
+    log("cost payload", payload);
     const costData = await fetchData("cost", {}, payload);
 
-    if (!Array.isArray(costData) || costData.length === 0) {
-      if (shippingOptionsDiv) shippingOptionsDiv.innerHTML = "<p>No shipping options found.</p>";
-      await loadSubdistricts(districtId);
-      return;
+    if (DBG && costData?.length) {
+      console.log("sample option", costData[0]);
     }
+    renderShippingOptions(costData, courier);
 
-    // Render courier/service options robustly
-    let html = "<h4>Available Shipping Options</h4><ul>";
-    costData.forEach(opt => {
-      const service = opt.service || opt.code || opt.name || "(service)";
-      const price   = (opt.cost && opt.cost[0] && opt.cost[0].value) ?? opt.price ?? opt.value ?? 0;
-      html += `<li>${courier.toUpperCase()} - ${service} : Rp ${Number(price).toLocaleString("id-ID")}</li>`;
-    });
-    html += "</ul>";
-    if (shippingOptionsDiv) shippingOptionsDiv.innerHTML = html;
-
-    // Load subdistricts after cost (if your flow needs it)
+    // load subdistricts after cost (if your flow needs full address)
     await loadSubdistricts(districtId);
   }
 
-  // ----- Listeners (single set) -----
+  // ===== EVENT LISTENERS =====
   provinceSelect.addEventListener("change", e => e.target.value && loadCities(e.target.value));
   citySelect.addEventListener("change",     e => e.target.value && loadDistricts(e.target.value));
-  districtSelect.addEventListener("change", () => loadShippingCost());
-  if (courierSelect) courierSelect.addEventListener("change", () => loadShippingCost());
+  districtSelect.addEventListener("change", () => {
+    localStorage.removeItem("selectedShipping");
+    loadShippingCost();
+  });
+  courierSelect.addEventListener("change",  () => {
+    localStorage.removeItem("selectedShipping");
+    loadShippingCost();
+  });
 
-  // ----- Kickoff -----
-  loadProvinces();
+  // ===== INIT =====
+  try {
+    renderOrderSummary();
+    await loadProvinces();
+  } catch (e) {
+    console.error("Init error:", e);
+  }
+
+  // if you use updateCartCount()/renderCart() from cart.js
+  if (typeof updateCartCount === "function") updateCartCount();
+  if (typeof renderCart === "function") renderCart();
 });

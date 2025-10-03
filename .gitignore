@@ -18,3 +18,13 @@ Thumbs.db
 
 # Logs
 *.log
+# secrets / env
+.env
+
+# netlify & build outputs
+.netlify/
+.netlify/functions-internal/
+
+# OS/editor noise
+.DS_Store
+.vscode/
