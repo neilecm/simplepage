@@ -1,86 +1,85 @@
 // assets/js/checkout.js
 
 // ---- Save address + payment ----
-async function saveAddress(event) {
-  event.preventDefault();
-
-  const user = JSON.parse(localStorage.getItem("user") || "null");
-  if (!user) {
-    alert("⚠️ Please login first.");
-    window.location.href = "login.html";
-    return;
-  }
-
-  const shippingChoice = JSON.parse(localStorage.getItem("selectedShipping"));
-  const cart = JSON.parse(localStorage.getItem("cart")) || [];
-
+async function saveAddress() {
   const address = {
-    user_id: user.id,
+    user_id: localStorage.getItem("user_id"),
     full_name: document.getElementById("full_name").value,
     street: document.getElementById("street").value,
-    city: document.getElementById("city").value,
     province: document.getElementById("province").value,
+    city: document.getElementById("city").value,
     postal_code: document.getElementById("postal_code").value,
     phone: document.getElementById("phone").value,
   };
 
-  try {
-    // 1. Save address
-    const res = await fetch("/.netlify/functions/auth-save-address", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(address),
-    });
+  // 1️⃣ Save to Supabase
+  const res = await fetch("/.netlify/functions/auth-save-address", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(address),
+  });
+  const addrResult = await res.json();
+  console.log("✅ Address saved:", addrResult);
 
-    if (!res.ok) throw new Error("Failed to save address");
+  // 2️⃣ Get shipping data
+  const totalWeight = calculateCartWeight();
+  const shippingChoice = JSON.parse(localStorage.getItem("selectedShipping") || "{}");
 
-    // 2. Re-check shipping cost live from RajaOngkir
-    const totalWeight = calculateCartWeight();
-    const shippingRes = await fetch("/.netlify/functions/shipping?type=cost", {
-      method: "POST",
-      body: JSON.stringify({
-        origin: "491", // Tangerang Selatan
-        destination: document.getElementById("city").value,
-        weight: totalWeight,
-        courier: shippingChoice.courier,
-      }),
-    });
+  const shippingRes = await fetch("/.netlify/functions/shipping?type=cost", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      origin: "491", // Tangerang Selatan
+      destination: document.getElementById("city").value,
+      weight: totalWeight,
+      courier: shippingChoice.courier || "jne",
+    }),
+  });
 
-    const shippingData = await shippingRes.json();
-    const courierResult = shippingData.rajaongkir.results.find(
-      (c) => c.code === shippingChoice.courier
-    );
-    const serviceResult = courierResult.costs.find(
-      (s) => s.service === shippingChoice.service
-    );
-    const shippingCost = serviceResult.cost[0].value;
+  const shippingData = await shippingRes.json();
+  console.log("🚚 Shipping data received:", shippingData);
 
-    // 3. Create Midtrans transaction
-    const orderRes = await fetch("/.netlify/functions/create-transaction", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cart,
-        address,
-        shipping: {
-          courier: shippingChoice.courier,
-          service: shippingChoice.service,
-          etd: shippingChoice.etd,
-          cost: shippingCost,
-        },
-      }),
-    });
+  // 3️⃣ Normalize both possible API response formats
+  const results =
+    shippingData?.rajaongkir?.results ||
+    shippingData?.data ||
+    [];
 
-    const orderData = await orderRes.json();
-    const token = orderData.token;
-
-    // 4. Open Midtrans Snap popup
-    window.snap.pay(token);
-  } catch (err) {
-    console.error("❌ Checkout error:", err);
-    document.getElementById("error-box").textContent = err.message;
+  if (!Array.isArray(results) || results.length === 0) {
+    throw new Error("No shipping data returned from API");
   }
+
+  const match = results.find(
+    (r) =>
+      r.code === shippingChoice.courier &&
+      r.service === shippingChoice.service
+  );
+
+  const shippingCost =
+    match?.cost?.value ||
+    match?.cost ||
+    match?.costs?.[0]?.value ||
+    0;
+
+  console.log("💰 Shipping cost resolved:", shippingCost);
+
+  // 4️⃣ Store and redirect to payment page
+  const cart = getCart();
+  const orderData = {
+    cart,
+    address,
+    shipping: {
+      courier: shippingChoice.courier,
+      service: shippingChoice.service,
+      etd: shippingChoice.etd || match?.etd || "-",
+      cost: shippingCost,
+    },
+  };
+
+  localStorage.setItem("pending_order", JSON.stringify(orderData));
+  window.location.href = "payment.html";
 }
+
 
 // ---- Helpers ----
 function calculateCartWeight() {

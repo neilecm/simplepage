@@ -1,1 +1,22 @@
-{}
+{
+  "name": "simplepage",
+  "version": "1.0.0",
+  "description": "Simplepage",
+  "main": "index.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "bcryptjs": "^3.0.2",
+    "node-fetch": "^2.7.0",
+    "tr46": "^0.0.3",
+    "undici-types": "^7.13.0",
+    "webidl-conversions": "^3.0.1",
+    "whatwg-url": "^5.0.0",
+    "ws": "^8.18.3"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
