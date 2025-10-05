@@ -1,68 +1,106 @@
 // netlify/functions/auth-save-address.js
-import { createClient } from "@supabase/supabase-js";
+// CommonJS Netlify function (works with Netlify's Node runtime)
+// Saves minimal address columns and packs everything else into JSONB `meta`.
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const { createClient } = require("@supabase/supabase-js");
 
-export async function handler(event) {
-  if (event.httpMethod !== "POST") {
+// ---- Env checks (fail fast with clear error) -------------------------------
+const SUPABASE_URL  = process.env.SUPABASE_URL;
+const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_KEY) {
+  console.error("Missing Supabase env vars. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+}
+
+const supabase = createClient(SUPABASE_URL || "", SERVICE_KEY || "");
+
+// Small helpers
+const json = (status, payload) => ({
+  statusCode: status,
+  headers: {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
+  },
+  body: JSON.stringify(payload),
+});
+
+exports.handler = async (event) => {
+  // CORS preflight
+  if (event.httpMethod === "OPTIONS") {
     return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method not allowed" }),
+      statusCode: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST,OPTIONS",
+      },
     };
+  }
+
+  if (event.httpMethod !== "POST") {
+    return json(405, { error: "Method Not Allowed" });
   }
 
   try {
-    const { user_id, full_name, street, city, province, postal_code, phone } =
-      JSON.parse(event.body);
-
-    console.log("📦 Incoming address:", {
-      user_id,
-      full_name,
-      street,
-      city,
-      province,
-      postal_code,
-      phone,
-    });
-
-    // Insert address linked to user_id (foreign key in Supabase)
-    const { data, error } = await supabase
-      .from("addresses")
-      .insert([
-        {
-          user_id,
-          full_name,
-          street,
-          city,
-          province,
-          postal_code,
-          phone,
-        },
-      ])
-      .select();
-
-    if (error) {
-      console.error("❌ Supabase insert error:", error);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: error.message }),
-      };
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      return json(500, { error: "Server misconfigured: Supabase env vars missing" });
     }
 
-    console.log("✅ Address saved:", data);
+    let body;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      return json(400, { error: "Invalid JSON body" });
+    }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: "Address saved", address: data[0] }),
+    // ---- Validate ONLY columns that exist in public.addresses ---------------
+    const required = ["full_name", "street", "city", "province", "postal_code", "phone"];
+    const missing = required.filter((k) => !body[k]);
+    if (missing.length) {
+      return json(400, { error: `Missing: ${missing.join(", ")}` });
+    }
+
+    // ---- Map to table columns ------------------------------------------------
+    const row = {
+      full_name:   String(body.full_name),
+      street:      String(body.street),
+      city:        String(body.city),
+      province:    String(body.province),
+      postal_code: String(body.postal_code),
+      phone:       String(body.phone),
+
+      // Optional: include if your table has this column
+      // user_id: body.user_id || null,
+
+      // ---- Everything else into JSONB `meta` --------------------------------
+      meta: {
+        province_id:    body.province_id ?? null,
+        city_id:        body.city_id ?? null,
+        district_id:    body.district_id ?? null,
+        subdistrict_id: body.subdistrict_id ?? null,
+        weight:         body.weight ?? null,
+        shipping:       body.shipping ?? null, // { courier, service, price, etd }
+      },
     };
+
+    const { data, error } = await supabase
+      .from("addresses")
+      .insert([row])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase insert error:", error);
+      return json(500, { error: error.message || "Insert failed" });
+    }
+
+    return json(200, { ok: true, data });
   } catch (err) {
-    console.error("🔥 Function crash:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Internal server error" }),
-    };
+    console.error("auth-save-address ERROR:", err);
+    return json(500, { error: err.message || "Unexpected server error" });
   }
-}
+};
+
+
