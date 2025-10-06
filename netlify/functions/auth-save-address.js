@@ -1,68 +1,33 @@
 // netlify/functions/auth-save-address.js
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { AuthController } from "../../src/controllers/AuthController.js";
 
 export async function handler(event) {
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
-  }
-
   try {
-    const { user_id, full_name, street, city, province, postal_code, phone } =
-      JSON.parse(event.body);
+    if (event.httpMethod === "OPTIONS")
+      return { statusCode: 200, headers: cors(), body: "" };
 
-    console.log("📦 Incoming address:", {
-      user_id,
-      full_name,
-      street,
-      city,
-      province,
-      postal_code,
-      phone,
-    });
-
-    // Insert address linked to user_id (foreign key in Supabase)
-    const { data, error } = await supabase
-      .from("addresses")
-      .insert([
-        {
-          user_id,
-          full_name,
-          street,
-          city,
-          province,
-          postal_code,
-          phone,
-        },
-      ])
-      .select();
-
-    if (error) {
-      console.error("❌ Supabase insert error:", error);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: error.message }),
-      };
-    }
-
-    console.log("✅ Address saved:", data);
+    const body = JSON.parse(event.body);
+    const result = await AuthController.saveAddress(body);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Address saved", address: data[0] }),
+      headers: { ...cors(), "Content-Type": "application/json" },
+      body: JSON.stringify(result),
     };
   } catch (err) {
-    console.error("🔥 Function crash:", err);
+    console.error(err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Internal server error" }),
+      headers: cors(),
+      body: JSON.stringify({ error: err.message }),
     };
   }
+}
+
+function cors() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
 }
