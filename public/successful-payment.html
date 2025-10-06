@@ -1,55 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payment Successful – Cera Brasileira</title>
-  <link rel="stylesheet" href="./assets/css/style.css?v=2">
+  <link rel="stylesheet" href="./assets/css/style.css?v=3" />
   <style>
+    body {
+      font-family: "Inter", Arial, sans-serif;
+      background: #fffdf8;
+      color: #333;
+      margin: 0;
+    }
+    header {
+      background: #e63946;
+      color: #fff;
+      text-align: center;
+      padding: 20px 0;
+      font-size: 1.8rem;
+      font-weight: bold;
+    }
     .thanks-container {
       text-align: center;
       padding: 80px 20px;
+      animation: fadeIn 0.8s ease;
     }
-    .thanks-container h1 {
-      color: #e63946;
-      font-size: 2.5rem;
-      margin-bottom: 20px;
+    h1 {
+      color: #2e7d32;
+      font-size: 2.4rem;
+      margin-bottom: 15px;
     }
-    .thanks-container p {
-      font-size: 1.2rem;
-      color: #333;
-      margin-bottom: 30px;
+    p {
+      font-size: 1.1rem;
+      margin-bottom: 25px;
     }
-    .thanks-container a {
+    a {
       display: inline-block;
       padding: 12px 24px;
-      background-color: #e63946;
+      background: #e63946;
       color: #fff;
       border-radius: 6px;
       text-decoration: none;
       font-weight: bold;
-      transition: background 0.3s;
+      transition: background 0.3s ease;
     }
-    .thanks-container a:hover {
-      background-color: #b0212c;
+    a:hover { background: #b0212c; }
+    footer {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #666;
+      padding: 20px 0;
+      border-top: 1px solid #eee;
+    }
+    .countdown {
+      color: #555;
+      margin-top: 20px;
+      font-size: 0.95rem;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Cera Brasileira</h1>
-  </header>
-
+  <header>Cera Brasileira</header>
   <main>
     <div class="thanks-container">
-      <h1>🎉 Thank You for Your Order!</h1>
-      <p>Your payment was successful. We’re processing your order and will update you soon.</p>
-      <a href="index.html">Continue Shopping</a>
+      <h1>🎉 Payment Successful!</h1>
+      <p>Your order has been confirmed.<br>We’ll email you once it’s on its way.</p>
+      <a href="index.html" id="continue-link">Continue Shopping</a>
+      <div class="countdown">Redirecting to home in <span id="timer">10</span> seconds...</div>
     </div>
   </main>
+  <footer>&copy; 2025 Cera Brasileira. All rights reserved.</footer>
+  <script type="module">
+  import { startRedirectCountdown } from "./assets/js/redirect-timer.js";
+  startRedirectCountdown(10, "#continue-link", "#timer");
+</script>
 
-  <footer>
-    <p>&copy; 2025 Cera Brasileira. All rights reserved.</p>
-  </footer>
 </body>
 </html>
