@@ -129,17 +129,46 @@ async function loadShippingCost() {
       html += `
         <label>
           <input type="radio" name="shipping" value="${opt.cost}">
-          ${opt.name} - ${opt.service} (${opt.description}) — Rp ${opt.cost.toLocaleString("id-ID")} 
+          ${opt.name} - ${opt.service} (${opt.description}) — Rp ${opt.cost.toLocaleString("id-ID")}
           <small>[${opt.etd}]</small>
         </label><br/>
       `;
     }
+
     container.innerHTML = html;
+
+    // ✅ New part: when user selects a courier, recalc total
+    document.querySelectorAll('input[name="shipping"]').forEach((radio) => {
+      radio.addEventListener("change", updateTotal);
+    });
   } catch (err) {
     console.error(err);
     container.innerHTML = "<p>Failed to fetch shipping cost.</p>";
   }
 }
+
+// 🧮 Helper: recalc total = cart subtotal + selected shipping cost
+function updateTotal() {
+  const itemElement = document.querySelector("#item-total");
+  const shipElement = document.querySelector("#shipping-total");
+  const totalElement = document.querySelector("#order-total");
+
+  if (!itemElement || !shipElement || !totalElement) return;
+
+  const cart = JSON.parse(localStorage.getItem("cart")) || [];
+  const itemTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+  const selected = document.querySelector('input[name="shipping"]:checked');
+  const shippingCost = selected ? Number(selected.value) : 0;
+
+  const total = itemTotal + shippingCost;
+
+  itemElement.textContent = `Items: Rp ${itemTotal.toLocaleString("id-ID")}`;
+  shipElement.textContent = `Shipping: Rp ${shippingCost.toLocaleString("id-ID")}`;
+  totalElement.textContent = `Total: Rp ${total.toLocaleString("id-ID")}`;
+}
+
+
 
 // Initialize cascading dropdowns
 document.addEventListener("DOMContentLoaded", () => {
@@ -149,4 +178,5 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("city").addEventListener("change", loadDistricts);
   document.getElementById("district").addEventListener("change", loadSubdistricts);
   document.getElementById("courier").addEventListener("change", loadShippingCost);
+  updateTotal(); // ✅ Show initial subtotal before courier is selected
 });
