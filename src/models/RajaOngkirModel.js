@@ -1,54 +1,102 @@
 // src/models/RajaOngkirModel.js
-const BASE_URL = process.env.RAJAONGKIR_BASE_URL || "https://api.rajaongkir.com/starter";
-const API_KEY  = process.env.RAJAONGKIR_API_KEY;
+const BASE_URL =
+  process.env.RAJAONGKIR_BASE_URL || "https://rajaongkir.komerce.id/api/v1";
+const API_KEY =
+  process.env.RAJAONGKIR_API_KEY || process.env.RAJAONGKIR_DELIVERY_KEY;
 
-if (!API_KEY) {
-  console.warn("[RajaOngkirModel] RAJAONGKIR_API_KEY is missing");
+// Utility: convert object → x-www-form-urlencoded
+function toFormUrlEncoded(obj) {
+  return Object.entries(obj)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
 }
 
-async function roFetch(path, { method = "GET", body } = {}) {
-  const url = `${BASE_URL}${path}`;
-  const headers = {
-    key: API_KEY,
-    "Content-Type": "application/json"
-  };
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
+// Generic GET fetcher (for hierarchical endpoints)
+async function roFetch(path) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "GET",
+    headers: {
+      Key: API_KEY, // Capital K required
+      "Content-Type": "application/json",
+    },
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`[RajaOngkir] ${res.status} ${res.statusText}: ${text}`);
+
+  const json = await res.json();
+  if (!res.ok || json.meta?.code !== 200) {
+    throw new Error(`[RajaOngkir V2] ${json.meta?.message || res.statusText}`);
   }
-  return res.json();
+
+  // Normalize to old RajaOngkir-style for frontend compatibility
+  return {
+    rajaongkir: {
+      status: json.meta,
+      results: json.data || [],
+    },
+  };
 }
 
 export class RajaOngkirModel {
+  // 1️⃣ Provinces
   static async provinces() {
-    return roFetch("/province");
+    return roFetch("/destination/province");
   }
-  static async cities(provinceId) {
-    const q = provinceId ? `?province=${encodeURIComponent(provinceId)}` : "";
-    return roFetch(`/city${q}`);
+
+  // 2️⃣ Cities by province
+  static async cities(province_id) {
+    if (!province_id) throw new Error("Missing province_id");
+    return roFetch(`/destination/city/${encodeURIComponent(province_id)}`);
   }
-  static async subdistricts(cityId) {
-    // PRO tier endpoint
-    const q = `?city=${encodeURIComponent(cityId)}`;
-    return roFetch(`/subdistrict${q}`);
+
+  // 3️⃣ Districts by city
+  static async districts(city_id) {
+    if (!city_id) throw new Error("Missing city_id");
+    return roFetch(`/destination/district/${encodeURIComponent(city_id)}`);
   }
-  static async cost({ origin, destination, weight, courier, originType = "city", destinationType = "city" }) {
-    // PRO uses originType/destinationType (city/subdistrict)
-    return roFetch("/cost", {
-      method: "POST",
-      body: {
-        origin,
-        originType,
-        destination,
-        destinationType,
-        weight,   // in grams
-        courier,  // e.g., "jne", "tiki", "pos"
-      },
+
+  // 4️⃣ Subdistricts by district
+  static async subdistricts(district_id) {
+    if (!district_id) throw new Error("Missing district_id");
+    return roFetch(`/destination/sub-district/${encodeURIComponent(district_id)}`);
+  }
+
+  // 5️⃣ Domestic cost (district-level precision)
+  static async domesticCost({
+    origin,
+    destination,
+    weight,
+    courier,
+    price = "lowest",
+  }) {
+    const formBody = toFormUrlEncoded({
+      origin,
+      destination,
+      weight,
+      courier, // e.g., "jne:sicepat:jnt:pos"
+      price,
     });
+
+    const res = await fetch(
+      `${BASE_URL}/calculate/district/domestic-cost`,
+      {
+        method: "POST",
+        headers: {
+          key: API_KEY, // lowercase key per official example
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formBody,
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok || json.meta?.code !== 200) {
+      throw new Error(`[RajaOngkir V2] ${json.meta?.message || res.statusText}`);
+    }
+
+    return {
+      rajaongkir: {
+        status: json.meta,
+        results: json.data || [],
+      },
+    };
   }
 }
