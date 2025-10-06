@@ -1,17 +1,29 @@
 [build]
-  publish = "public"                 # serve static files from /public
-  functions = "netlify/functions"    # folder containing serverless functions
+  publish = "public"
+  functions = "netlify/functions"
 
 [dev]
   functions = "netlify/functions"
   publish = "public"
 
 [functions]
-  node_bundler = "esbuild"           # required for ESM imports
-  included_files = ["src/**"]        # ✅ include your MVC folder (models, controllers, etc.)
+  node_bundler = "esbuild"
+  included_files = ["src/**"]
   external_node_modules = [
     "@supabase/supabase-js",
-    "bcryptjs"
+    "midtrans-client",
+    "bcryptjs",
+    "dotenv"
+  ]
+
+  # ✅ Declare ESM format the correct way (as object)
+  [functions.format]
+  esm = true
+
+  # ✅ Node bundler ES module exception (for midtrans-client)
+  [functions.node_bundler_es_modules]
+  external_node_modules = [
+    "midtrans-client"
   ]
 
 [functions.environment]
