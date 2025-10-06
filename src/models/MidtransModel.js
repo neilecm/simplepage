@@ -30,7 +30,8 @@ export class MidtransModel {
     return res.json(); // { token, redirect_url }
   }
 
-  static verifySignature({ order_id, status_code, gross_amount, signature_key }) {
+  // ✅ Add this method BELOW createSnapTransaction
+  static async verifySignature({ order_id, status_code, gross_amount, signature_key }) {
     const crypto = await import("crypto");
     const generated = crypto
       .createHash("sha512")

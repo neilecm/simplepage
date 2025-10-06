@@ -1,43 +1,56 @@
 // src/controllers/ShippingController.js
 import { RajaOngkirModel } from "../models/RajaOngkirModel.js";
 
-function normalize(okJson) {
-  // RajaOngkir returns {rajaongkir:{status, results}}. We ensure that shape.
-  if (okJson?.rajaongkir?.results !== undefined) return okJson; // already OK
-  // If caller provided raw 'results' array, wrap it:
-  if (Array.isArray(okJson)) return { rajaongkir: { results: okJson } };
-  // If it's cost object (already wrapped by RajaOngkir), just return:
-  if (okJson?.rajaongkir) return okJson;
-  // Fallback: wrap whole response into results
-  return { rajaongkir: { results: okJson ?? [] } };
+function normalize(json) {
+  if (json?.rajaongkir?.results !== undefined) return json;
+  return { rajaongkir: { results: json ?? [] } };
 }
 
 export class ShippingController {
+  // 🔹 Provinces
   static async getProvinces() {
-    const data = await RajaOngkirModel.provinces();
-    return normalize(data);
+    return normalize(await RajaOngkirModel.provinces());
   }
 
-  static async getCities({ province_id } = {}) {
-    const data = await RajaOngkirModel.cities(province_id);
-    return normalize(data);
+  // 🔹 Cities (by province_id)
+  static async getCities({ province_id }) {
+    if (!province_id) throw new Error("Missing province_id");
+    return normalize(await RajaOngkirModel.cities(province_id));
   }
 
-  static async getSubdistricts({ city_id }) {
-    const data = await RajaOngkirModel.subdistricts(city_id);
-    return normalize(data);
+  // 🔹 Districts (by city_id)
+  static async getDistricts({ city_id }) {
+    if (!city_id) throw new Error("Missing city_id");
+    return normalize(await RajaOngkirModel.districts(city_id));
   }
 
-  static async getCost({ origin, destination, weight, courier, originType, destinationType }) {
-    const data = await RajaOngkirModel.cost({
-      origin,
-      destination,
-      weight,
+  // 🔹 Subdistricts (by district_id)
+  static async getSubdistricts({ district_id }) {
+    if (!district_id) throw new Error("Missing district_id");
+    return normalize(await RajaOngkirModel.subdistricts(district_id));
+  }
+
+  // 🔹 Shipping cost (district-level, domestic)
+  static async getCost({
+    origin,
+    destination,
+    courier,
+    weight = 1000,
+    price = "lowest",
+  }) {
+    const originDistrict =
+      origin || process.env.RO_ORIGIN_DISTRICT_ID || "1391"; // fallback
+    const destDistrict = destination;
+    if (!destDistrict) throw new Error("Missing destination district_id");
+
+    const data = await RajaOngkirModel.domesticCost({
+      origin: originDistrict,
+      destination: destDistrict,
       courier,
-      originType,
-      destinationType,
+      weight,
+      price,
     });
-    // RajaOngkir cost already in correct outer shape; still run through normalize
+
     return normalize(data);
   }
 }
