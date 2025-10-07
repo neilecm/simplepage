@@ -19,6 +19,8 @@ export class Router {
         // ============================================================
         // 🚚 SHIPPING CONTROLLER
         // ============================================================
+        
+        
         case "shipping": {
           switch (method) {
             // 🧭 Step-by-step region data
@@ -78,14 +80,16 @@ export class Router {
         // 💳 PAYMENT CONTROLLER
         // ============================================================
         case "payment": {
-          switch (method) {
-            case "createTransaction":
-              return PaymentController.createTransaction(body);
+  switch (method) {
+    case "createTransaction":
+      return await PaymentController.createTransaction(body);
+    case "callback":
+      return await PaymentController.handleCallback(body);
+    default:
+      throw new Error(`Unknown payment method: ${method}`);
+  }
+}
 
-            default:
-              throw new Error(`Unknown payment method: ${method}`);
-          }
-        }
 
         // ============================================================
         // 📦 ORDER CONTROLLER
