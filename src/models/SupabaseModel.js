@@ -1,39 +1,25 @@
 // src/models/SupabaseModel.js
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-export const supabase = createClient(supabaseUrl, supabaseKey);
+const client = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export class SupabaseModel {
-  // ---- Address ----
-  static async insertAddress({ user_id, full_name, phone, address, city_id, postal_code }) {
-    const { data, error } = await supabase
+  static async insertAddress(address) {
+    const { data, error } = await client
       .from("addresses")
-      .insert([{ user_id, full_name, phone, address, city_id, postal_code }])
-      .select("*")
+      .insert([address])
+      .select()
       .single();
 
-    if (error) throw error;
-    return data;
-  }
-
-  // ---- Orders ----
-  static async insertOrder(order) {
-    const { data, error } = await supabase.from("orders").insert([order]).select("*").single();
-    if (error) throw error;
-    return data;
-  }
-
-  static async updateOrderStatus(order_id, status) {
-    const { data, error } = await supabase
-      .from("orders")
-      .update({ status })
-      .eq("order_id", order_id)
-      .select("*")
-      .single();
-    if (error) throw error;
+    if (error) {
+      // Bubble a clean Error up to controller
+      const err = new Error(error.message || "Supabase insert failed");
+      err.code = error.code;
+      throw err;
+    }
     return data;
   }
 }
