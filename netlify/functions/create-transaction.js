@@ -1,106 +1,61 @@
-// netlify/functions/create-transaction.js
-// Safe Midtrans Snap transaction creator with cart + shipping support
+import midtransClient from "midtrans-client";
 
-const midtransClient = require("midtrans-client");
-
-// Toggle production via env (defaults to false)
-const IS_PRODUCTION =
-  String(process.env.MIDTRANS_IS_PRODUCTION || "").toLowerCase() === "true";
-
-// Create Snap client
-const snap = new midtransClient.Snap({
-  isProduction: IS_PRODUCTION,
-  serverKey: process.env.MIDTRANS_SERVER_KEY,
-});
-
-// Helpers
-const toInt = (v, def = 0) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.round(n) : def;
-};
-const sanitizeId = (s) =>
-  (s || "item")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .slice(0, 50); // Midtrans item id max length 50
-
-exports.handler = async (event) => {
+// Netlify automatically runs handler() as an AWS Lambda
+export const handler = async (event) => {
   try {
-    // Parse JSON body
-    let body = {};
-    try {
-      body = JSON.parse(event.body);
-    } catch (err) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
+    const body = JSON.parse(event.body || "{}");
+    const { total_cost } = body;
+
+    if (!total_cost) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing total_cost in request body" })
+      };
     }
 
-    const { cart = [], address = {}, shipping = null } = body;
+    // Initialize Snap client with your keys
+    const snap = new midtransClient.Snap({
+      isProduction: false,
+      serverKey: process.env.MIDTRANS_SERVER_KEY,
+      clientKey: process.env.MIDTRANS_CLIENT_KEY
+    });
 
-    // Build cart items
-    const itemDetails = cart.map((item) => ({
-      id: sanitizeId(item.id),
-      price: toInt(item.price),
-      quantity: toInt(item.qty),
-      name: item.name,
-    }));
-
-    // Add shipping as an item if present
-    if (shipping && shipping.cost) {
-      itemDetails.push({
-        id: "shipping",
-        price: toInt(shipping.cost),
-        quantity: 1,
-        name: `${shipping.courier.toUpperCase()} - ${shipping.service}`,
-      });
-    }
-
-    // Calculate total
-    const grossAmount = itemDetails.reduce(
-      (sum, i) => sum + i.price * i.quantity,
-      0
-    );
-
-    // Midtrans transaction params
+    // Prepare parameters
     const parameter = {
       transaction_details: {
-        order_id: "order-" + Date.now(),
-        gross_amount: grossAmount,
+        order_id: `ORDER-${Date.now()}`,
+        gross_amount: total_cost
       },
-      item_details: itemDetails,
+      credit_card: { secure: true },
+      item_details: [
+        {
+          id: "wax-001",
+          price: total_cost,
+          quantity: 1,
+          name: "Brazilian Hard Wax"
+        }
+      ],
       customer_details: {
-        first_name: address.full_name || "Customer",
-        email: address.email || "no-email@example.com",
-        phone: address.phone || "",
-        billing_address: {
-          first_name: address.full_name,
-          address: address.street,
-          city: address.city,
-          postal_code: address.postal_code,
-        },
-        shipping_address: {
-          first_name: address.full_name,
-          address: address.street,
-          city: address.city,
-          postal_code: address.postal_code,
-          phone: address.phone,
-        },
-      },
+        first_name: "Neil",
+        email: "neil@example.com"
+      }
     };
 
-    // Request Snap token
+    // Create transaction
     const transaction = await snap.createTransaction(parameter);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ token: transaction.token }),
+      body: JSON.stringify({
+        token: transaction.token,
+        redirect_url: transaction.redirect_url
+      })
     };
-  } catch (err) {
-    console.error("Midtrans error:", err);
+  } catch (error) {
+    console.error("Midtrans create-transaction error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ error: error.message })
     };
   }
 };

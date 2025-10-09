@@ -1,5 +1,5 @@
-// netlify/functions/create-order.js
-import { OrderController } from "../../src/controllers/OrderController.js";
+// netlify/functions/api.js
+import { Router } from "../../src/controllers/Router.js";
 
 export async function handler(event) {
   try {
@@ -7,20 +7,24 @@ export async function handler(event) {
     if (event.httpMethod === "OPTIONS")
       return { statusCode: 200, headers: cors(), body: "" };
 
-    // Parse incoming data
-    const body = JSON.parse(event.body);
+    // Parse body and query params
+    const body = event.body ? JSON.parse(event.body) : {};
+    const query = event.queryStringParameters || {};
+    const action = query.action || body.action;
+    const method = query.method || body.method;
 
-    // Delegate to MVC controller
-    const result = await OrderController.createOrder(body);
+    if (!action) throw new Error("Missing 'action' parameter");
 
-    // Respond to frontend
+    // Dispatch to Router
+    const result = await Router.handle({ action, method, body, query });
+
     return {
       statusCode: 200,
       headers: { ...cors(), "Content-Type": "application/json" },
       body: JSON.stringify(result),
     };
   } catch (err) {
-    console.error("[create-order]", err);
+    console.error("[api]", err);
     return {
       statusCode: 500,
       headers: cors(),
@@ -29,11 +33,10 @@ export async function handler(event) {
   }
 }
 
-// Common CORS helper
 function cors() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
 }

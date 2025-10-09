@@ -1,56 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payment Pending – Cera Brasileira</title>
-  <link rel="stylesheet" href="./assets/css/style.css?v=2">
+  <link rel="stylesheet" href="./assets/css/style.css?v=3" />
   <style>
-    .pending-container {
-      text-align: center;
-      padding: 80px 20px;
-    }
-    .pending-container h1 {
-      color: #ff9800; /* orange for warning/pending */
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-    }
-    .pending-container p {
-      font-size: 1.2rem;
-      color: #333;
-      margin-bottom: 30px;
-    }
-    .pending-container a {
-      display: inline-block;
-      padding: 12px 24px;
-      background-color: #e63946;
-      color: #fff;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
-    .pending-container a:hover {
-      background-color: #b0212c;
-    }
+    body { font-family: "Inter", Arial, sans-serif; background: #fffdf8; color: #333; margin: 0; }
+    header { background: #f9a825; color: #fff; text-align: center; padding: 20px 0; font-size: 1.8rem; font-weight: bold; }
+    .thanks-container { text-align: center; padding: 80px 20px; animation: fadeIn 0.8s ease; }
+    h1 { color: #f57f17; font-size: 2.2rem; margin-bottom: 15px; }
+    p { font-size: 1.1rem; margin-bottom: 25px; }
+    a { display: inline-block; padding: 12px 24px; background: #f9a825; color: #fff; border-radius: 6px; text-decoration: none; font-weight: bold; transition: background 0.3s ease; }
+    a:hover { background: #c48900; }
+    footer { text-align: center; font-size: 0.9rem; color: #666; padding: 20px 0; border-top: 1px solid #eee; }
+    .countdown { color: #555; margin-top: 20px; font-size: 0.95rem; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Cera Brasileira</h1>
-  </header>
-
+  <header>Cera Brasileira</header>
   <main>
-    <div class="pending-container">
+    <div class="thanks-container">
       <h1>⌛ Payment Pending</h1>
-      <p>We’ve received your order, but your payment is still pending.<br>
-      If you chose bank transfer or e-wallet, please complete the payment to confirm your order.</p>
-      <a href="index.html">Back to Home</a>
+      <p>Your order has been placed, but payment is still pending.<br>Please complete it using your selected method.</p>
+      <a href="index.html" id="continue-link">Return to Home</a>
+      <div class="countdown">Redirecting in <span id="timer">10</span> seconds...</div>
     </div>
   </main>
+  <footer>&copy; 2025 Cera Brasileira. All rights reserved.</footer>
+  <script type="module">
+  import { startRedirectCountdown } from "./assets/js/redirect-timer.js";
+  startRedirectCountdown(10, "#continue-link", "#timer");
+</script>
 
-  <footer>
-    <p>&copy; 2025 Cera Brasileira. All rights reserved.</p>
-  </footer>
 </body>
 </html>

@@ -1,6 +1,6 @@
 [build]
-  publish = "public"                 # <-- serve files from public/
-  functions = "netlify/functions"    # serverless functions folder
+  publish = "public"
+  functions = "netlify/functions"
 
 [dev]
   functions = "netlify/functions"
@@ -8,10 +8,22 @@
 
 [functions]
   node_bundler = "esbuild"
+  included_files = ["src/**"]
   external_node_modules = [
     "@supabase/supabase-js",
     "midtrans-client",
-    "bcryptjs"
+    "bcryptjs",
+    "dotenv"
+  ]
+
+  # ✅ Declare ESM format the correct way (as object)
+  [functions.format]
+  esm = true
+
+  # ✅ Node bundler ES module exception (for midtrans-client)
+  [functions.node_bundler_es_modules]
+  external_node_modules = [
+    "midtrans-client"
   ]
 
 [functions.environment]

@@ -120,12 +120,12 @@
     <!-- Left: Delivery Form -->
     <div class="form-container">
       <h2>Delivery Address</h2>
-<form id="checkoutForm" onsubmit="saveAddress(event)">
+<form id="checkoutForm">
   <label for="full_name">Full Name:</label>
   <input type="text" id="full_name" required />
 
-  <label for="street">Street Address:</label>
-  <input type="text" id="street" required />
+  <label for="street_address">Street Address:</label>
+  <input type="text" id="street_address" required />
 
   <label for="province">Select Province</label>
 <select id="province" required>
@@ -163,7 +163,7 @@
   <label for="phone">Phone:</label>
   <input type="tel" id="phone" required />
 
-  <button type="submit">Continue to Payment</button>
+  <button type="button" id="continue-to-payment">Continue to Payment</button>
 </form>
 <div id="error-box" style="color: red; margin-top: 10px;"></div>
 
@@ -171,27 +171,30 @@
 
     <!-- Right: Order Summary -->
     <div class="summary-container">
-      <h2>Order Summary</h2>
-      <ul id="order-summary">
-        <!-- Items will be injected by JS -->
-      </ul>
-      <div class="total" id="order-total">Total: Rp 0</div>
+      <div id="order-summary">
+        <h3>Order Summary</h3>
+        <p id="item-total">Items: Rp 0</p>
+        <p id="shipping-total">Shipping: Rp 0</p>
+        <hr />
+        <p id="order-total"><strong>Total: Rp 0</strong></p>
+      </div>
+
+
     </div>
   </main>
 
-  <!-- Cart logic (defines renderCart, updateCartCount, etc.) -->
-<script src="assets/js/cart.js"></script>
+  <!-- Cart logic -->
+  <script type="module" src="assets/js/cart.js"></script>
 
-<!-- Checkout logic (depends on cart.js) -->
-<script src="assets/js/checkout.js"></script>
+  <!-- Checkout logic (now using MVC pattern) -->
+  <script type="module" src="assets/js/checkout.js"></script>
 
+  <!-- Order Summary MVC -->
+<script type="module" src="assets/js/controllers/OrderSummaryController.js"></script>
+
+  <!-- Midtrans (optional for payment step) -->
   <script src="https://app.sandbox.midtrans.com/snap/snap.js"
-        data-client-key="YOUR-MIDTRANS-CLIENT-KEY"></script>
-
-
-
-
-</script>
+          data-client-key="YOUR-MIDTRANS-CLIENT-KEY"></script>
 
 </body>
 </html>

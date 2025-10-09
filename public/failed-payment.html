@@ -1,56 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payment Failed – Cera Brasileira</title>
-  <link rel="stylesheet" href="./assets/css/style.css?v=2">
+  <link rel="stylesheet" href="./assets/css/style.css?v=3" />
   <style>
-    .failed-container {
-      text-align: center;
-      padding: 80px 20px;
-    }
-    .failed-container h1 {
-      color: #d32f2f; /* red for error */
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-    }
-    .failed-container p {
-      font-size: 1.2rem;
-      color: #333;
-      margin-bottom: 30px;
-    }
-    .failed-container a {
-      display: inline-block;
-      padding: 12px 24px;
-      background-color: #e63946;
-      color: #fff;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
-    .failed-container a:hover {
-      background-color: #b0212c;
-    }
+    body { font-family: "Inter", Arial, sans-serif; background: #fffdf8; color: #333; margin: 0; }
+    header { background: #b71c1c; color: #fff; text-align: center; padding: 20px 0; font-size: 1.8rem; font-weight: bold; }
+    .thanks-container { text-align: center; padding: 80px 20px; animation: fadeIn 0.8s ease; }
+    h1 { color: #d32f2f; font-size: 2.2rem; margin-bottom: 15px; }
+    p { font-size: 1.1rem; margin-bottom: 25px; }
+    a { display: inline-block; padding: 12px 24px; background: #b71c1c; color: #fff; border-radius: 6px; text-decoration: none; font-weight: bold; transition: background 0.3s ease; }
+    a:hover { background: #8e0000; }
+    footer { text-align: center; font-size: 0.9rem; color: #666; padding: 20px 0; border-top: 1px solid #eee; }
+    .countdown { color: #555; margin-top: 20px; font-size: 0.95rem; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Cera Brasileira</h1>
-  </header>
-
+  <header>Cera Brasileira</header>
   <main>
-    <div class="failed-container">
+    <div class="thanks-container">
       <h1>❌ Payment Failed</h1>
-      <p>Unfortunately, your payment could not be processed.<br>
-      Please check your card details or try another payment method.</p>
-      <a href="cart.html">Return to Cart</a>
+      <p>Unfortunately, your payment couldn’t be processed.<br>Please try again or choose another method.</p>
+      <a href="checkout.html" id="continue-link">Try Again</a>
+      <div class="countdown">Redirecting to Checkout in <span id="timer">10</span> seconds...</div>
     </div>
   </main>
+  <footer>&copy; 2025 Cera Brasileira. All rights reserved.</footer>
+  <script type="module">
+  import { startRedirectCountdown } from "./assets/js/redirect-timer.js";
+  startRedirectCountdown(10, "#continue-link", "#timer");
+</script>
 
-  <footer>
-    <p>&copy; 2025 Cera Brasileira. All rights reserved.</p>
-  </footer>
 </body>
 </html>
