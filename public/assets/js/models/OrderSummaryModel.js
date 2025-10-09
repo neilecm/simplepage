@@ -1,27 +1,43 @@
-// public/assets/js/models/OrderSummaryModel.js
-
 export const OrderSummaryModel = {
-  // Get cart data from localStorage
+  // 🧩 Get cart items from localStorage
   getCart() {
     try {
       return JSON.parse(localStorage.getItem("cart")) || [];
-    } catch {
+    } catch (error) {
+      console.error("OrderSummaryModel.getCart error:", error);
       return [];
     }
   },
 
-  // Calculate total items price
+  // 🧩 Calculate total of all items in the cart
   getItemsTotal(cart) {
-    return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    try {
+      return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    } catch (error) {
+      console.error("OrderSummaryModel.getItemsTotal error:", error);
+      return 0;
+    }
   },
 
-  // Get shipping cost (saved earlier on checkout)
+  // 🧩 Retrieve saved shipping cost
   getShippingCost() {
-    return Number(localStorage.getItem("shipping_cost")) || 0;
+    try {
+      const shipping = localStorage.getItem("shipping_cost");
+      return shipping ? parseInt(shipping) : 0;
+    } catch (error) {
+      console.error("OrderSummaryModel.getShippingCost error:", error);
+      return 0;
+    }
   },
 
-  // Get grand total
-  getGrandTotal(itemsTotal, shippingCost) {
-    return itemsTotal + shippingCost;
-  },
+  // ✅ Replace grandTotal with gross_amount
+  getGrossAmount(itemsTotal, shippingCost) {
+    try {
+      const gross_amount = itemsTotal + shippingCost;
+      return gross_amount;
+    } catch (error) {
+      console.error("OrderSummaryModel.getGrossAmount error:", error);
+      return 0;
+    }
+  }
 };

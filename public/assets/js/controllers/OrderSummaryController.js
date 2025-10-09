@@ -7,11 +7,14 @@ export const OrderSummaryController = {
     const cart = OrderSummaryModel.getCart();
     const itemsTotal = OrderSummaryModel.getItemsTotal(cart);
     const shippingCost = OrderSummaryModel.getShippingCost();
-    const grandTotal = OrderSummaryModel.getGrandTotal(itemsTotal, shippingCost);
+    const gross_amount = OrderSummaryModel.getGrossAmount(itemsTotal, shippingCost);
+    
 
-    OrderSummaryView.render(cart, { itemsTotal, shippingCost, grandTotal });
+    OrderSummaryView.render(cart, { itemsTotal, shippingCost, gross_amount });
   },
 };
+
+
 
 // Automatically initialize when page loads
 document.addEventListener("DOMContentLoaded", () => OrderSummaryController.init());
