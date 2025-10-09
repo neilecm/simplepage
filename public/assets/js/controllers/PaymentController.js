@@ -23,24 +23,32 @@ export const PaymentController = {
       PaymentView.showStatus("Processing payment...", "info");
 
       // ✅ Launch Snap payment popup
-      window.snap.pay(token, {
-        onSuccess: (result) => {
-          console.log("✅ Payment success:", result);
-          PaymentView.showSuccess();
-        },
-        onPending: (result) => {
-          console.log("⏳ Payment pending:", result);
-          PaymentView.showPending();
-        },
-        onError: (err) => {
-          console.error("❌ Payment error:", err);
-          PaymentView.showError();
-        },
-        onClose: () => {
-          console.log("💤 Payment closed.");
-          PaymentView.showClosed();
-        }
-      });
+      // prevent double initialization
+if (!window.snapInitiated) {
+  window.snapInitiated = true;
+  setTimeout(() => {
+    window.snap.pay(token, {
+      onSuccess: (result) => {
+        console.log("✅ Payment success:", result);
+        PaymentView.showSuccess();
+      },
+      onPending: (result) => {
+        console.log("⏳ Payment pending:", result);
+        PaymentView.showPending();
+      },
+      onError: (err) => {
+        console.error("❌ Payment error:", err);
+        PaymentView.showError();
+      },
+      onClose: () => {
+        console.log("💤 Payment closed.");
+        PaymentView.showClosed();
+        window.snapInitiated = false;
+      }
+    });
+  }, 500);
+}
+;
     } catch (error) {
       console.error("PaymentController.init error:", error);
       PaymentView.showStatus(error.message, "error");
