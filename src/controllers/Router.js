@@ -1,7 +1,7 @@
 // src/controllers/Router.js
 import { ShippingController } from "./ShippingController.js";
 import { AuthController } from "./AuthController.js";
-import { PaymentController } from "./PaymentController.js";
+//import { PaymentController } from "./PaymentController.js";
 import { OrderController } from "./OrderController.js";
 
 export class Router {
@@ -79,16 +79,16 @@ export class Router {
         // ============================================================
         // 💳 PAYMENT CONTROLLER
         // ============================================================
-        case "payment": {
-  switch (method) {
-    case "createTransaction":
-      return await PaymentController.createTransaction(body);
-    case "callback":
-      return await PaymentController.handleCallback(body);
-    default:
-      throw new Error(`Unknown payment method: ${method}`);
-  }
-}
+   //     case "payment": {
+  //switch (method) {
+   // case "createTransaction":
+    //  return await PaymentController.createTransaction(body);
+    //case "callback":
+    //  return await PaymentController.handleCallback(body);
+    //default:
+    //  throw new Error(`Unknown payment method: ${method}`);
+ // }
+//}
 
 
         // ============================================================

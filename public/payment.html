@@ -80,8 +80,13 @@
     <a href="checkout.html" class="btn-back">← Back to Checkout</a>
   </main>
 
-  <script src="./assets/js/payment.js"></script>
-  <script type="module" src="assets/js/controllers/OrderSummaryController.js"></script>
-  <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-z5imH2Dt1I-CSOr8"></script>
+  <script type="module">
+  import { PaymentController } from "./assets/js/controllers/PaymentController.js";
+  document.addEventListener("DOMContentLoaded", () => PaymentController.init());
+</script>
+
+<script src="https://app.sandbox.midtrans.com/snap/snap.js"
+        data-client-key="Mid-client-z5imH2Dt1I-CSOr8"></script>
+
 </body>
 </html>

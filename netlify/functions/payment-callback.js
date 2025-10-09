@@ -1,31 +1,36 @@
-// netlify/functions/payment-callback.js
-import { MidtransModel } from "../../src/models/MidtransModel.js";
-import { SupabaseModel } from "../../src/models/SupabaseModel.js";
+import midtransClient from "midtrans-client";
 
-export async function handler(event) {
+export const handler = async (event) => {
   try {
-    const body = JSON.parse(event.body);
+    const notification = JSON.parse(event.body || "{}");
 
-    const { order_id, status_code, gross_amount, signature_key, transaction_status } = body;
-    const valid = MidtransModel.verifySignature({ order_id, status_code, gross_amount, signature_key });
+    // Initialize Midtrans Core API client
+    const core = new midtransClient.CoreApi({
+      isProduction: false,
+      serverKey: process.env.MIDTRANS_SERVER_KEY,
+      clientKey: process.env.MIDTRANS_CLIENT_KEY
+    });
 
-    if (!valid) {
-      console.warn("[payment-callback] invalid signature");
-      return { statusCode: 400, body: "Invalid signature" };
-    }
+    // Verify transaction status from notification
+    const statusResponse = await core.transaction.notification(notification);
 
-    const newStatus =
-      transaction_status === "settlement"
-        ? "paid"
-        : transaction_status === "cancel"
-        ? "cancelled"
-        : transaction_status;
+    console.log("Midtrans callback received:", statusResponse);
 
-    await SupabaseModel.updateOrderStatus(order_id, newStatus);
+    // Example of what you might want to log or handle:
+    // const { order_id, transaction_status, fraud_status } = statusResponse;
 
-    return { statusCode: 200, body: "OK" };
-  } catch (err) {
-    console.error("[payment-callback]", err);
-    return { statusCode: 500, body: "Error" };
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        message: "Notification processed successfully",
+        status: statusResponse.transaction_status
+      })
+    };
+  } catch (error) {
+    console.error("Midtrans payment-callback error:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    };
   }
-}
+};
