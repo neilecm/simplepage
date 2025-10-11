@@ -6,20 +6,8 @@ function formatCurrency(value) {
   return `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
 }
 
-function dispatchShippingUpdated(detail = {}) {
-  document.dispatchEvent(
-    new CustomEvent("shippingUpdated", {
-      detail: {
-        cost: Number(detail.cost) || 0,
-        courier: detail.courier || "",
-        courierName: detail.courierName || "",
-        service: detail.service || "",
-        description: detail.description || "",
-        etd: detail.etd || "",
-        label: detail.label || "",
-      },
-    })
-  );
+function dispatchShippingUpdated() {
+  document.dispatchEvent(new Event("shippingUpdated"));
 }
 
 function readJSON(key) {
@@ -237,7 +225,7 @@ export const ShippingController = {
     }`;
 
     this._savedServiceKey = key;
-    localStorage.setItem("shipping_cost", String(service.cost));
+    localStorage.setItem("shipping_cost", service.cost);
     localStorage.setItem("shipping_service", key);
     writeJSON("shipping_selection_meta", {
       courier: service.courier,
@@ -255,17 +243,7 @@ export const ShippingController = {
       )}`
     );
 
-    if (emitEvent) {
-      dispatchShippingUpdated({
-        cost: service.cost,
-        courier: service.courier,
-        courierName: service.courierName,
-        service: service.service,
-        description: service.description,
-        etd: service.etd,
-        label,
-      });
-    }
+    if (emitEvent) dispatchShippingUpdated();
   },
 
   clearSelection({ emitEvent = false } = {}) {
@@ -282,9 +260,7 @@ export const ShippingController = {
       this.serviceSelect.value = "";
     }
 
-    if (emitEvent && hadSelection) {
-      dispatchShippingUpdated({ cost: 0 });
-    }
+    if (emitEvent && hadSelection) dispatchShippingUpdated();
   },
 
   disableServiceSelect() {
