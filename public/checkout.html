@@ -418,6 +418,29 @@
   <!-- Order Summary MVC -->
   <script type="module" src="assets/js/controllers/OrderSummaryController.js"></script>
 
+  <!-- Shipping Controllers -->
+  <script type="module">
+    import { ShippingController } from "/assets/js/controllers/ShippingController.js";
+    import { KomerceShippingController } from "/assets/js/controllers/KomerceShippingController.js";
+
+    // ✅ Toggle between old and new APIs
+    const USE_KOMERCE = true; // Switch to false to revert to RajaOngkir
+
+    window.__USE_KOMERCE__ = USE_KOMERCE;
+
+    if (USE_KOMERCE) {
+      console.log("Using Komerce Delivery API");
+      document.addEventListener("DOMContentLoaded", () =>
+        KomerceShippingController.init()
+      );
+    } else {
+      console.log("Using RajaOngkir API");
+      document.addEventListener("DOMContentLoaded", () =>
+        ShippingController.init()
+      );
+    }
+  </script>
+
   <!-- Midtrans -->
   <script src="https://app.sandbox.midtrans.com/snap/snap.js"
           data-client-key="YOUR-MIDTRANS-CLIENT-KEY"></script>
