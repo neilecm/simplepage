@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vendor Dashboard | Cera Brasileira Marketplace</title>
+  <link rel="stylesheet" href="../assets/css/style.css?v=2" />
+  <style>
+    :root {
+      --brand-red: #df4530;
+      --brand-red-dark: #b54520;
+      --brand-gold: #ffede1;
+      --brand-cream: #fff9ef;
+      --brand-cream-soft: #fffdf7;
+      --text-secondary: #6b7280;
+    }
+
+    body {
+      font-family: "Inter", Arial, sans-serif;
+      background: var(--brand-cream);
+      color: #2c2c2c;
+      margin: 0;
+    }
+
+    .navbar {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      background: var(--brand-gold);
+      padding: 12px 24px;
+      border-bottom: 1px solid #f6c2aa;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .navbar a {
+      color: var(--brand-red-dark);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .navbar a:hover {
+      text-decoration: underline;
+    }
+
+    header.dashboard-header {
+      margin: 32px auto 24px;
+      text-align: center;
+      max-width: 960px;
+      padding: 0 20px;
+    }
+
+    header.dashboard-header h1 {
+      color: var(--brand-red);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    header.dashboard-header p {
+      color: #b45309;
+      margin: 0;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto 48px;
+      display: grid;
+      gap: 24px;
+      padding: 0 20px 32px;
+    }
+
+    section.card {
+      background: var(--brand-cream-soft);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 18px 38px rgba(223, 69, 48, 0.08);
+      border: 1px solid rgba(223, 69, 48, 0.08);
+    }
+
+    section.card h2 {
+      color: var(--brand-red);
+      margin-top: 0;
+    }
+
+    form {
+      display: grid;
+      gap: 16px;
+    }
+
+    label {
+      font-weight: 600;
+      color: var(--brand-red-dark);
+      font-size: 0.92rem;
+    }
+
+    input,
+    textarea {
+      border-radius: 12px;
+      border: 1px solid rgba(223, 69, 48, 0.2);
+      padding: 12px 14px;
+      font-size: 1rem;
+      background: #fffdfa;
+      font-family: inherit;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    button,
+    .button-link {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--brand-red);
+      color: #fffdf7;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:hover,
+    .button-link:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(204, 31, 37, 0.25);
+    }
+
+    button:disabled,
+    .button-link.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .vendor-status {
+      margin-top: 8px;
+      font-size: 0.92rem;
+      color: #4b5563;
+      min-height: 18px;
+    }
+
+    .vendor-status-success {
+      color: #047857;
+    }
+
+    .vendor-status-error {
+      color: #dc2626;
+    }
+
+    .vendor-status-info {
+      color: #b45309;
+    }
+
+    .vendor-products-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .vendor-product-card {
+      display: grid;
+      gap: 12px;
+      background: #fffdfa;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid rgba(223, 69, 48, 0.12);
+    }
+
+    .vendor-product-media img {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 12px;
+    }
+
+    .vendor-product-placeholder {
+      background: rgba(223, 69, 48, 0.08);
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      color: var(--brand-red-dark);
+      font-weight: 600;
+    }
+
+    .vendor-product-info h4 {
+      margin: 0;
+      color: var(--brand-red);
+    }
+
+    .vendor-product-meta {
+      margin: 4px 0;
+      color: var(--brand-red-dark);
+      font-weight: 600;
+    }
+
+    .vendor-product-description {
+      margin: 0;
+      color: var(--text-secondary);
+    }
+
+    .vendor-product-stats {
+      display: flex;
+      gap: 16px;
+      color: #b45309;
+      font-size: 0.92rem;
+    }
+
+    .vendor-delete-button {
+      justify-self: start;
+      background: #fef2f2;
+      color: var(--brand-red-dark);
+      border: 1px solid rgba(181, 69, 32, 0.3);
+    }
+
+    .vendor-delete-button:hover {
+      background: #fca5a5;
+      color: #7f1d1d;
+    }
+
+    .vendor-empty {
+      color: var(--text-secondary);
+      margin: 0;
+      font-style: italic;
+    }
+
+    .vendor-info-card {
+      display: grid;
+      gap: 12px;
+      align-items: center;
+      grid-template-columns: auto 1fr;
+      margin-bottom: 16px;
+    }
+
+    .vendor-info-card img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 8px 20px rgba(223, 69, 48, 0.18);
+      background: #fff;
+    }
+
+    .vendor-info-card h3 {
+      margin: 0;
+      color: var(--brand-red);
+    }
+
+    .vendor-info-card p {
+      margin: 4px 0 0;
+      color: var(--text-secondary);
+    }
+
+    .vendor-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .vendor-actions .button-link {
+      background: #fff2e5;
+      color: var(--brand-red-dark);
+      border: 1px solid rgba(181, 69, 32, 0.3);
+    }
+
+    .vendor-actions .button-link:hover {
+      background: #ffd8bf;
+    }
+
+    .forms-grid-two {
+      display: grid;
+      gap: 12px;
+    }
+
+    .forms-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    @media (min-width: 768px) {
+      .forms-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .forms-grid-two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+  <script>
+    window.__SUPABASE__ = window.__SUPABASE__ || {
+      url: "https://cdadixyavaxkzjovrlek.supabase.co",
+      anonKey:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYWRpeHlhdmF4a3pqb3ZybGVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5NTcwNTEsImV4cCI6MjA3NDUzMzA1MX0.8SrOwwxy7rzBcM3ctFyLQ93hQy2OjsVp8ZbKGGx8kcc",
+    };
+  </script>
+  <script type="module" src="../assets/js/controllers/VendorController.js"></script>
+</head>
+<body>
+  <header class="navbar">
+    <a href="/index.html">🏠 Home</a>
+    <a href="/cart.html">🛒 Cart</a>
+    <a href="/pages/vendor-dashboard.html">🧑‍💼 Dashboard</a>
+    <a href="/login.html" id="logout-btn">Logout</a>
+  </header>
+
+  <header class="dashboard-header">
+    <h1 id="vendor-name-label">Vendor Dashboard</h1>
+    <p>Register your store and manage products for the marketplace.</p>
+  </header>
+
+  <main>
+    <section id="register-section" class="card">
+      <h2>Create Your Store</h2>
+      <form id="vendor-register-form">
+        <div class="forms-grid-two">
+          <div>
+            <label for="store_name">Store Name</label>
+            <input id="store_name" name="store_name" placeholder="e.g. Cera Artisans" required />
+          </div>
+          <div>
+            <label for="logo_url">Logo URL</label>
+            <input id="logo_url" name="logo_url" placeholder="https://example.com/logo.png" />
+          </div>
+        </div>
+
+        <label for="description">Store Description</label>
+        <textarea id="description" name="description" placeholder="Tell shoppers about your brand"></textarea>
+
+        <button type="submit" id="register-submit">Register Store</button>
+        <div id="vendor-status" class="vendor-status"></div>
+      </form>
+    </section>
+
+    <section id="dashboard-section" class="card" style="display: none;">
+      <div id="vendor-info" class="vendor-info-card">
+        <img id="vendor-logo" src="" alt="Vendor Logo" />
+        <div>
+          <h3 id="vendor-name"></h3>
+          <p id="vendor-desc"></p>
+        </div>
+      </div>
+
+      <div class="vendor-actions">
+        <button id="edit-store-btn" type="button">Edit Store Info</button>
+        <a href="/store.html" id="view-store-btn" class="button-link" target="_blank" rel="noopener">View Store</a>
+      </div>
+
+      <section class="card">
+        <h2>Add a Product</h2>
+        <form id="vendor-product-form">
+          <div class="forms-grid">
+            <div>
+              <label for="product_name">Product Name</label>
+              <input id="product_name" name="product_name" placeholder="Product name" required />
+            </div>
+            <div>
+              <label for="product_price">Price (Rp)</label>
+              <input id="product_price" name="product_price" type="number" min="0" step="1000" placeholder="0" required />
+            </div>
+            <div>
+              <label for="product_stock">Stock</label>
+              <input id="product_stock" name="product_stock" type="number" min="0" placeholder="0" />
+            </div>
+            <div>
+              <label for="product_weight">Weight (grams)</label>
+              <input id="product_weight" name="product_weight" type="number" min="0" placeholder="0" />
+            </div>
+          </div>
+
+          <label for="product_cat">Category</label>
+          <input id="product_cat" name="product_cat" placeholder="Optional category" />
+
+          <label for="product_desc">Description</label>
+          <textarea id="product_desc" name="product_desc" placeholder="Short product description"></textarea>
+
+          <label for="product_img">Image URL</label>
+          <input id="product_img" name="product_img" placeholder="https://example.com/image.jpg" />
+
+          <button type="submit">Add Product</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Your Products</h2>
+        <div id="vendor-products" class="vendor-products-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      if (window.VendorController?.init) {
+        window.VendorController.init();
+      }
+    });
+  </script>
+</body>
+</html>
