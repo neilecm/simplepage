@@ -3,198 +3,423 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Checkout</title>
-  <link rel="stylesheet" href="./assets/css/style.css?v=2">
+  <title>Checkout | Cera Brasileira</title>
+  <link rel="stylesheet" href="./assets/css/style.css?v=2" />
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f8f9fa;
       margin: 0;
-      padding: 0;
+      font-family: "Inter", Arial, sans-serif;
+      background: #fff8ef;
+      color: #2c2c2c;
     }
 
     header {
-      background: #e63946;
-      color: white;
-      padding: 15px;
-      text-align: center;
+      background: #e5242b;
+      color: #fff;
+      padding: 20px 0;
+      box-shadow: 0 3px 12px rgba(229, 36, 43, 0.35);
     }
 
-    main {
+    header .container {
+      width: min(1100px, 92%);
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #ffe160;
+      text-transform: uppercase;
+    }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+    }
+
+    nav a {
+      color: rgba(255, 255, 255, 0.9);
+      text-decoration: none;
+      font-size: 0.97rem;
+      font-weight: 500;
+      transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    nav a:hover,
+    nav a.active {
+      color: #ffe160;
+      transform: translateY(-1px);
+    }
+
+    .cart-link {
+      font-weight: 600;
+      background: #ffe160;
+      color: #b91c1c;
+      padding: 6px 14px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    main#checkout {
+      padding: 48px 0 80px;
+    }
+
+    .checkout-container {
+      width: min(1100px, 92%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: 28px;
+      align-items: start;
+    }
+
+    .checkout-column {
+      background: #fff9ef;
+      border-radius: 18px;
+      box-shadow: 0 22px 45px rgba(229, 36, 43, 0.08);
+      padding: 30px;
+      border: 1px solid rgba(229, 36, 43, 0.08);
+    }
+
+    .checkout-column h2 {
+      margin: 0 0 20px;
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #e5242b;
+    }
+
+    form#checkoutForm {
+      display: grid;
+      gap: 18px;
+    }
+
+    .form-row {
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      max-width: 1200px;
-      margin: 20px auto;
-      padding: 0 15px;
+      gap: 8px;
     }
 
-    .form-container,
-    .summary-container {
-      background: #fff;
-      border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      flex: 1;
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
     }
 
-    h2 {
-      margin-top: 0;
-      color: #333;
+    label {
+      font-weight: 600;
+      color: #b91c1c;
+      font-size: 0.92rem;
     }
 
-    /* Form styles */
-    .form-container label {
-      display: block;
-      margin: 10px 0 5px;
-      font-weight: bold;
-      color: #444;
-    }
-
-    .form-container input {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+    input,
+    select,
+    textarea {
+      border-radius: 12px;
+      border: 1px solid rgba(229, 36, 43, 0.2);
+      padding: 12px 14px;
       font-size: 1rem;
+      background: #fffdfa;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .form-container button {
-      width: 100%;
-      margin-top: 20px;
-      padding: 12px;
-      background: #e63946;
-      color: white;
-      font-size: 1.1rem;
-      font-weight: bold;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.3s;
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: rgba(229, 36, 43, 0.65);
+      box-shadow: 0 0 0 3px rgba(229, 36, 43, 0.18);
     }
 
-    .form-container button:hover {
-      background: #d62828;
+    textarea {
+      resize: vertical;
+      min-height: 90px;
     }
 
-    /* Order summary */
-    .summary-container ul {
-      list-style: none;
-      padding: 0;
+    #shipping-options {
+      background: #fff3d9;
+      border: 1px dashed rgba(229, 36, 43, 0.25);
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 0.95rem;
+      color: #b45309;
+    }
+
+    #shipping-options p {
       margin: 0;
     }
 
-    .summary-container li {
+    .summary-card {
+      background: #fff9ef;
+      border-radius: 16px;
+      border: 1px solid rgba(229, 36, 43, 0.08);
+      padding: 22px;
+      margin-bottom: 22px;
+      min-height: 170px;
+      box-shadow: 0 22px 45px rgba(229, 36, 43, 0.08);
+    }
+
+    .summary-card h3 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #e5242b;
+    }
+
+    #order-summary .summary-item {
       display: flex;
       justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #eee;
+      align-items: center;
+      margin-bottom: 12px;
+      color: #5c5c5c;
     }
 
-    .summary-container .total {
-      font-weight: bold;
-      font-size: 1.1rem;
-      margin-top: 10px;
+    #order-summary .summary-item strong {
+      color: #e5242b;
     }
 
-    /* Tablet/Desktop layout */
-    @media (min-width: 768px) {
-      main {
-        flex-direction: row;
+    #order-summary .summary-item span {
+      color: #5c5c5c;
+      font-weight: 500;
+    }
+
+    #order-summary #order-total strong {
+      color: #e5242b;
+      font-size: 1.05rem;
+    }
+
+    #continue-to-payment {
+      width: 100%;
+      padding: 15px 18px;
+      background: #e5242b;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    #continue-to-payment:hover {
+      background: #cc1f25;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(204, 31, 37, 0.3);
+    }
+
+    #continue-to-payment:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    #error-box {
+      margin-top: 12px;
+      font-size: 0.92rem;
+      color: #b91c1c;
+    }
+
+    .payment-note {
+      margin-top: 14px;
+      font-size: 0.9rem;
+      color: #b45309;
+      text-align: center;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px 16px;
+      font-size: 0.9rem;
+      color: #fffaf0;
+      background: #e5242b;
+      margin-top: 40px;
+      letter-spacing: 0.03em;
+    }
+
+    #payment-spinner {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 18px;
+      color: #fff;
+      z-index: 1000;
+    }
+
+    #payment-spinner[hidden] {
+      display: none;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 5px solid rgba(255, 225, 96, 0.25);
+      border-top-color: #ffe160;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .checkout-container {
+        grid-template-columns: 1fr;
+      }
+      .checkout-column {
+        padding: 24px;
+      }
+      nav {
+        justify-content: center;
+      }
+      header .container {
+        flex-direction: column;
       }
     }
   </style>
 </head>
 <body>
   <header>
-  <h1><a href="index.html" style="color: white; text-decoration: none;">My Shop</a></h1>
-  <nav>
-    <a href="index.html">Home</a>
-    <a href="products.html">Products</a>
-    <a href="checkout.html" style="color:#ffeb3b;">Checkout</a>
-    <a href="track.html">Track Order</a>
-    <a href="cart.html">🛒 Cart (<span id="cart-count">0</span>)</a>
-  </nav>
-</header>
-  <main>
-    <!-- Left: Delivery Form -->
-    <div class="form-container">
-      <h2>Delivery Address</h2>
-<form id="checkoutForm">
-  <label for="full_name">Full Name:</label>
-  <input type="text" id="full_name" required />
-
-  <label for="street_address">Street Address:</label>
-  <input type="text" id="street_address" required />
-
-  <label for="province">Select Province</label>
-<select id="province" required>
-  <option value="">-- Select Province --</option>
-</select>
-
-<label for="city">Select City</label>
-<select id="city" required>
-  <option value="">-- Select City --</option>
-</select>
-
-<label for="district">Select District</label>
-<select id="district" required>
-  <option value="">-- Select District --</option>
-</select>
-
-<label for="courier">Select Courier</label>
-<select id="courier" required>
-  <option value="">-- Select Courier --</option>
-  <option value="jne">JNE</option>
-  <option value="tiki">TIKI</option>
-  <option value="pos">POS</option>
-</select>
-
-<label for="subdistrict">Select Subdistrict</label>
-<select id="subdistrict">
-  <option value="">-- Select Subdistrict --</option>
-</select>
-
-<div id="shipping-options"><p>No shipping options found.</p></div>
-
-  <label for="postal_code">Postal Code:</label>
-  <input type="text" id="postal_code" required />
-
-  <label for="phone">Phone:</label>
-  <input type="tel" id="phone" required />
-
-  <button type="button" id="continue-to-payment">Continue to Payment</button>
-</form>
-<div id="error-box" style="color: red; margin-top: 10px;"></div>
-
+    <div class="container">
+      <h1>Cera Brasileira</h1>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="products.html">Products</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="checkout.html" class="active">Checkout</a>
+        <a href="track.html">Track Order</a>
+        <a href="cart.html" class="cart-link">🛒 Cart (<span id="cart-count">0</span>)</a>
+        <a href="login.html">Login</a>
+        <a href="register.html">Register</a>
+      </nav>
     </div>
+  </header>
 
-    <!-- Right: Order Summary -->
-    <div class="summary-container">
-      <div id="order-summary">
-        <h3>Order Summary</h3>
-        <p id="item-total">Items: Rp 0</p>
-        <p id="shipping-total">Shipping: Rp 0</p>
-        <hr />
-        <p id="order-total"><strong>Total: Rp 0</strong></p>
-      </div>
+  <main id="checkout">
+    <div class="checkout-container">
+      <section class="checkout-column" id="delivery-section">
+        <h2>Delivery Address</h2>
+        <form id="checkoutForm">
+          <div class="form-row">
+            <label for="full_name">Full Name</label>
+            <input type="text" id="full_name" placeholder="Your full name" required />
+          </div>
 
+          <div class="form-row">
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" placeholder="08xxxxxxxxxx" required />
+          </div>
 
+          <div class="form-row">
+            <label for="street_address">Street Address</label>
+            <textarea id="street_address" rows="3" placeholder="Street, building, house number" required></textarea>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="province">Province</label>
+              <select id="province" required>
+                <option value="">Select province</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="city">City / Regency</label>
+              <select id="city" required>
+                <option value="">Select city</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="district">District</label>
+              <select id="district" required>
+                <option value="">Select district</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="subdistrict">Subdistrict</label>
+              <select id="subdistrict">
+                <option value="">Select subdistrict</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="courier">Courier</label>
+              <select id="courier" required>
+                <option value="">Choose courier</option>
+                <option value="jne">JNE</option>
+                <option value="tiki">TIKI</option>
+                <option value="pos">POS</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="postal_code">Postal Code</label>
+              <input type="text" id="postal_code" placeholder="Postal code" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Shipping Service</label>
+            <div id="shipping-options">
+              <p>Select a courier and district to view available services.</p>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="checkout-column" id="summary-section">
+        <h2>Order Summary</h2>
+        <div id="order-summary" class="summary-card">
+          <h3>Your Items</h3>
+          <p>Loading cart details...</p>
+        </div>
+
+        <button type="button" id="continue-to-payment">Continue to Payment</button>
+        <p class="payment-note">You will be redirected to Midtrans to complete your secure payment.</p>
+        <div id="error-box"></div>
+      </section>
     </div>
   </main>
+
+  <footer>
+    <p>&copy; 2025 Cera Brasileira. All rights reserved.</p>
+  </footer>
+
+  <div id="payment-spinner" hidden>
+    <div class="spinner"></div>
+    <p id="spinner-message">Processing your payment...</p>
+  </div>
 
   <!-- Cart logic -->
   <script type="module" src="assets/js/cart.js"></script>
 
-  <!-- Checkout logic (now using MVC pattern) -->
+  <!-- Checkout logic (MVC) -->
   <script type="module" src="assets/js/checkout.js"></script>
 
   <!-- Order Summary MVC -->
-<script type="module" src="assets/js/controllers/OrderSummaryController.js"></script>
+  <script type="module" src="assets/js/controllers/OrderSummaryController.js"></script>
 
-  <!-- Midtrans (optional for payment step) -->
+  <!-- Midtrans -->
   <script src="https://app.sandbox.midtrans.com/snap/snap.js"
           data-client-key="YOUR-MIDTRANS-CLIENT-KEY"></script>
-
 </body>
 </html>
