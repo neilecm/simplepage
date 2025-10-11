@@ -50,6 +50,20 @@ export const CheckoutController = {
   },
 
   async saveAndContinue() {
+    const errorBox = document.getElementById("error-box");
+    if (errorBox) errorBox.textContent = "";
+
+    const shippingCost = Number(localStorage.getItem("shipping_cost") || 0);
+    if (Number.isNaN(shippingCost) || shippingCost <= 0) {
+      const message = "Please select a shipping service before continuing.";
+      if (errorBox) {
+        errorBox.textContent = message;
+      } else {
+        alert(message);
+      }
+      return;
+    }
+
     const fields = {
       full_name: document.getElementById("full_name")?.value.trim(),
       street: document.getElementById("street_address")?.value.trim(),
@@ -60,7 +74,7 @@ export const CheckoutController = {
       postal_code: document.getElementById("postal_code")?.value.trim(),
       phone: document.getElementById("phone")?.value.trim(),
       courier: document.getElementById("courier")?.value,
-      shipping_cost: document.querySelector('input[name="shipping"]:checked')?.value || 0,
+      shipping_cost: shippingCost,
     };
 
     // Validate fields
