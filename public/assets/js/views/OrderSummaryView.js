@@ -19,6 +19,16 @@ export const OrderSummaryView = {
       )
       .join("");
 
+    const shippingCost =
+      totals.shippingCost ?? totals.shipping_cost ?? 0;
+    const shippingInfo = totals.shippingInfo || null;
+    const shippingLabel = shippingInfo
+      ? `${shippingInfo.label}${
+          shippingInfo.description ? ` (${shippingInfo.description})` : ""
+        }`
+      : "Shipping";
+    const shippingMeta = shippingInfo?.etd ? `ETD: ${shippingInfo.etd}` : "";
+
     // 🧩 Build the full summary, including Items Total and Shipping
     summaryEl.innerHTML = `
       ${itemsHTML || "<p>Your cart is empty.</p>"}
@@ -28,11 +38,14 @@ export const OrderSummaryView = {
         <span id="item-total">${formatIDR(totals.itemsTotal ?? 0)}</span>
       </div>
       <div class="summary-item" id="shipping-total-line">
-        <strong>Shipping</strong>
-        <span id="shipping-total">${formatIDR(
-          totals.shippingCost ?? totals.shipping_cost ?? 0
-        )}</span>
+        <strong>${shippingLabel}</strong>
+        <span id="shipping-total">${formatIDR(shippingCost)}</span>
       </div>
+      ${
+        shippingMeta
+          ? `<div class="summary-note" id="shipping-meta">${shippingMeta}</div>`
+          : ""
+      }
     `;
 
     // 🧮 Update or create the grand total element
