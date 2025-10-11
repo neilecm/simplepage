@@ -3,6 +3,12 @@ import { CheckoutView } from "../views/CheckoutView.js";
 
 export const CheckoutController = {
   async init() {
+    // Reset stale shipping data upon entering checkout
+    localStorage.setItem("shipping_cost", "0");
+    localStorage.removeItem("shipping_service");
+    localStorage.removeItem("shipping_selection_meta");
+    document.dispatchEvent(new Event("shippingUpdated"));
+
     try {
       const provinces = await CheckoutModel.fetchProvinces();
       CheckoutView.populateSelect("province", provinces.data || provinces.rajaongkir?.results || []);
