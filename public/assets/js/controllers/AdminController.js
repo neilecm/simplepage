@@ -54,9 +54,13 @@ export const AdminController = {
 
     this.table?.addEventListener("change", (event) => {
       if (event.target.matches(".status-select")) {
-        const orderId = event.target.dataset.order;
-        const newStatus = event.target.value;
-        this.updateOrderStatus(orderId, newStatus);
+        const select = event.target;
+        const orderId = select.dataset.order;
+        const previousStatus = select.dataset.current || select.dataset.prev || select.getAttribute("data-current") || "pending";
+        const newStatus = select.value;
+        if (previousStatus === newStatus) return;
+        select.disabled = true;
+        this.updateOrderStatus(orderId, newStatus, previousStatus, select);
       }
     });
 
@@ -109,7 +113,7 @@ export const AdminController = {
     }
   },
 
-  async updateOrderStatus(orderId, status) {
+  async updateOrderStatus(orderId, status, previousStatus, selectEl) {
     if (!orderId) return;
     try {
       const updated = await AdminModel.updateOrderStatus({
@@ -118,10 +122,19 @@ export const AdminController = {
         status,
       });
       AdminView.updateOrderRow(updated);
+      if (selectEl) {
+        selectEl.dataset.current = updated.status || status;
+        selectEl.disabled = false;
+      }
+      AdminView.showToast(`✔ Order ${orderId} marked as ${(updated.status || status).toUpperCase()}.`);
     } catch (error) {
       console.warn("[AdminController.updateOrderStatus]", error);
-      alert(error.message || "Failed to update order status.");
-      this.loadOrders();
+      if (selectEl) {
+        selectEl.value = previousStatus;
+        selectEl.dataset.current = previousStatus;
+        selectEl.disabled = false;
+      }
+      AdminView.showToast(error.message || "Failed to update order status.", "error");
     }
   },
 };
