@@ -1,6 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import bcrypt from "bcryptjs";
-
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -20,48 +18,68 @@ export async function handler(event) {
 
     console.log("🔍 Attempting login for:", email);
 
-    // Fetch user from Supabase
-    const { data, error } = await supabase
+    const { data: signInData, error: signInError } =
+      await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInError || !signInData?.user) {
+      console.warn("❌ Supabase auth signIn failed:", signInError);
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: "Invalid email or password" }),
+      };
+    }
+
+    const authUser = signInData.user;
+    console.log("🔑 Auth user:", authUser.id);
+
+    let { data: profile, error: profileError } = await supabase
       .from("users")
-      .select("*")
-      .eq("email", email)
-      .single();
+      .select("id, role, name, phone")
+      .eq("id", authUser.id)
+      .maybeSingle();
 
-    if (error || !data) {
-      console.warn("❌ User not found or query error:", error);
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: "Invalid email or password" }),
-      };
+    if (profileError) {
+      console.warn("⚠️ Supabase profile lookup failed:", profileError.message);
     }
 
-    console.log("👤 User found:", {
-      id: data.id,
-      email: data.email,
-      name: data.name,
-    });
-
-    // Compare password
-    const valid = await bcrypt.compare(password, data.password);
-    if (!valid) {
-      console.warn("❌ Invalid password for user:", email);
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: "Invalid email or password" }),
+    if (!profile) {
+      console.warn("🧩 Profile missing for user:", authUser.email);
+      const fallbackProfile = {
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || "",
+        role: "user",
+        created_at: new Date().toISOString(),
       };
+
+      const { error: insertError } = await supabase
+        .from("users")
+        .insert([fallbackProfile]);
+
+      if (insertError) {
+        console.error("❌ Failed to create fallback profile:", insertError.message);
+      } else {
+        console.log("✅ Fallback profile created for", authUser.email);
+        profile = fallbackProfile;
+      }
     }
 
-    console.log("✅ Password correct. Login successful for:", email);
+    const role = profile?.role || "user";
+    console.log("👤 Profile role:", role);
+
+    console.log("✅ Login successful for:", email);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: "Login successful",
+        token: signInData.session?.access_token || null,
         user: {
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          phone: data.phone,
+          id: authUser.id,
+          email: authUser.email,
+          name: profile?.name || authUser.user_metadata?.full_name || "",
+          phone: profile?.phone || authUser.user_metadata?.phone || "",
+          role,
         },
       }),
     };
