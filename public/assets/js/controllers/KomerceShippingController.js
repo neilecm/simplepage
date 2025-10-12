@@ -228,9 +228,20 @@ export const KomerceShippingController = {
       if (requestId !== this.currentRequestId) return;
 
       this.services = services || [];
+      if (this.services.length) {
+        localStorage.setItem("komerce_api_status", "enabled");
+        window.KOMERCE_API_KEY = window.KOMERCE_API_KEY || "enabled";
+      }
       this.populateServiceOptions();
     } catch (error) {
       console.error("[KomerceShippingController.loadServices]", error);
+      if (
+        typeof error?.message === "string" &&
+        error.message.includes("KOMERCE_API_KEY")
+      ) {
+        localStorage.setItem("komerce_api_status", "missing");
+        window.KOMERCE_API_KEY = "missing";
+      }
       this.services = [];
       this.disableServiceSelect();
       this.setMetaMessage(
