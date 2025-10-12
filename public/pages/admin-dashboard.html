@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🧾 Orders Dashboard | Cera Brasileira</title>
+  <link rel="stylesheet" href="../assets/css/style.css?v=4" />
+  <style>
+    :root {
+      --brand-red: #e63446;
+      --brand-gold: #ffd04b;
+      --brand-cream: #fff9ef;
+      --text-dark: #1f2937;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", Arial, sans-serif;
+      background: var(--brand-cream);
+      color: var(--text-dark);
+    }
+
+    header.navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 5%;
+      background: var(--brand-red);
+      color: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    header.navbar h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      letter-spacing: 0.03em;
+    }
+
+    header.navbar nav a {
+      color: #fff;
+      text-decoration: none;
+      margin-right: 16px;
+      font-weight: 600;
+    }
+
+    header.navbar button {
+      background: #fff;
+      color: var(--brand-red);
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    main.admin-wrapper {
+      max-width: 1100px;
+      margin: 32px auto 64px;
+      padding: 0 24px;
+      display: grid;
+      gap: 24px;
+    }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 18px 40px rgba(230, 52, 70, 0.08);
+    }
+
+    .filter-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .filter-controls input,
+    .filter-controls select {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(230, 52, 70, 0.25);
+      font-size: 0.95rem;
+      background: #fffdfa;
+    }
+
+    .orders-card {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 18px 40px rgba(31, 41, 55, 0.12);
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #admin-loading {
+      padding: 24px;
+      text-align: center;
+      font-weight: 600;
+      color: var(--brand-red);
+    }
+
+    #admin-error {
+      margin: 0;
+      padding: 16px 24px;
+      background: rgba(230, 52, 70, 0.1);
+      color: var(--brand-red);
+      font-weight: 600;
+      display: none;
+    }
+
+    #admin-error[hidden] {
+      display: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    thead {
+      background: rgba(230, 52, 70, 0.08);
+      color: var(--brand-red);
+    }
+
+    th,
+    td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(230, 52, 70, 0.1);
+      font-size: 0.95rem;
+    }
+
+    tr:hover {
+      background: rgba(230, 52, 70, 0.04);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-pending { background: rgba(255, 208, 75, 0.18); color: #b45309; }
+    .badge-paid { background: rgba(34, 197, 94, 0.18); color: #166534; }
+    .badge-shipped { background: rgba(59, 130, 246, 0.18); color: #1d4ed8; }
+    .badge-delivered { background: rgba(16, 185, 129, 0.18); color: #047857; }
+    .badge-cancelled { background: rgba(239, 68, 68, 0.18); color: #b91c1c; }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .actions select {
+      border-radius: 999px;
+      border: 1px solid rgba(230, 52, 70, 0.25);
+      padding: 6px 12px;
+      background: #fffdfa;
+    }
+
+    .actions button {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 999px;
+      background: var(--brand-red);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #orders-empty {
+      padding: 24px;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    #orders-empty[hidden] {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      main.admin-wrapper { padding: 0 16px; }
+      table { min-width: unset; }
+      thead { display: none; }
+      tr { display: grid; padding: 12px 0; border-bottom: 1px solid rgba(230,52,70,0.08); }
+      td { display: flex; justify-content: space-between; border: none; padding: 8px 12px; }
+      td::before { content: attr(data-label); font-weight: 600; color: #6b7280; margin-right: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div>
+      <h1>🧾 Orders Dashboard</h1>
+    </div>
+    <div>
+      <nav>
+        <a href="/index.html">Home</a>
+        <a href="/products.html">Products</a>
+        <a href="/checkout.html">Checkout</a>
+      </nav>
+    </div>
+    <button id="admin-logout">Logout</button>
+  </header>
+
+  <main class="admin-wrapper">
+    <section class="filter-bar">
+      <div class="filter-controls">
+        <input type="search" id="order-search" placeholder="Search orders…" aria-label="Search orders" />
+        <select id="order-status-filter" aria-label="Filter orders by status">
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <span style="color:#6b7280; font-size:0.9rem;">Manage orders across the marketplace in real time.</span>
+    </section>
+
+    <section class="orders-card">
+      <p id="admin-error" hidden></p>
+      <div id="admin-loading">Loading orders…</div>
+      <div style="overflow-x:auto;">
+        <table id="orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Date</th>
+              <th>Total</th>
+              <th>Payment</th>
+              <th>Shipping</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="orders-body"></tbody>
+        </table>
+      </div>
+      <div id="orders-empty" hidden>No orders found for the current filters.</div>
+    </section>
+  </main>
+
+  <script type="module" src="../assets/js/controllers/AdminController.js"></script>
+</body>
+</html>
