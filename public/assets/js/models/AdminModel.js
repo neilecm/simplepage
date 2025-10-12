@@ -24,7 +24,7 @@ export const AdminModel = {
    * Fetch orders from the admin Netlify function.
    * @param {{ adminId: string, status?: string, search?: string }} params
    */
-  async fetchOrders({ adminId, status = "all", search = "" }) {
+  async fetchOrders({ adminId, status, search } = {}) {
     const query = new URLSearchParams();
     if (status && status !== "all") query.set("status", status);
     if (search) query.set("search", search);
@@ -56,5 +56,19 @@ export const AdminModel = {
       }),
     });
     return result.order || result;
+  },
+
+  async fetchOrderDetails({ adminId, orderId }) {
+    return request(
+      `/.netlify/functions/admin-get-order-details?order_id=${encodeURIComponent(
+        orderId
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          "x-admin-id": adminId,
+        },
+      }
+    );
   },
 };

@@ -8,6 +8,8 @@ export const AdminController = {
   init() {
     this.cacheElements();
     this.bindEvents();
+    this.orders = [];
+    this.filteredOrders = [];
     this.user = this.getCurrentUser();
 
     if (!this.user) {
@@ -41,14 +43,14 @@ export const AdminController = {
     });
 
     if (this.filterSelect) {
-      this.filterSelect.addEventListener("change", () => this.loadOrders());
+      this.filterSelect.addEventListener("change", () => this.applyFilters());
     }
 
     if (this.searchInput) {
       let debounceTimer;
       this.searchInput.addEventListener("input", () => {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => this.loadOrders(), FILTER_DEBOUNCE);
+        debounceTimer = setTimeout(() => this.applyFilters(), FILTER_DEBOUNCE);
       });
     }
 
@@ -67,8 +69,7 @@ export const AdminController = {
     this.table?.addEventListener("click", (event) => {
       if (event.target.matches(".view-btn")) {
         const orderId = event.target.dataset.order;
-        console.info("[AdminController] View details clicked:", orderId);
-        alert("Order detail modal coming soon!");
+        this.showOrderDetails(orderId);
       }
     });
   },
@@ -90,16 +91,12 @@ export const AdminController = {
   async loadOrders() {
     try {
       AdminView.showLoading();
-      const status = this.filterSelect?.value || "all";
-      const search = this.searchInput?.value?.trim() || "";
-
       const orders = await AdminModel.fetchOrders({
         adminId: this.user.id,
-        status,
-        search,
       });
 
-      AdminView.renderOrdersTable(orders);
+      this.orders = Array.isArray(orders) ? orders : [];
+      this.applyFilters();
     } catch (error) {
       console.warn("[AdminController.loadOrders]", error);
       if (error.status === 401 || error.status === 403) {
@@ -113,6 +110,35 @@ export const AdminController = {
     }
   },
 
+  applyFilters() {
+    const term = (this.searchInput?.value || "").trim().toLowerCase();
+    const statusFilter = (this.filterSelect?.value || "all").toLowerCase();
+
+    let filtered = Array.isArray(this.orders) ? [...this.orders] : [];
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(
+        (order) => String(order.status || "").toLowerCase() === statusFilter
+      );
+    }
+
+    if (term) {
+      filtered = filtered.filter((order) => {
+        const name = String(order.customer_name || order.user_id || "").toLowerCase();
+        const email = String(order.customer_email || "").toLowerCase();
+        const id = String(order.order_id || "").toLowerCase();
+        return (
+          name.includes(term) ||
+          email.includes(term) ||
+          id.includes(term)
+        );
+      });
+    }
+
+    this.filteredOrders = filtered;
+    AdminView.renderOrdersTable(filtered);
+  },
+
   async updateOrderStatus(orderId, status, previousStatus, selectEl) {
     if (!orderId) return;
     try {
@@ -121,11 +147,13 @@ export const AdminController = {
         orderId,
         status,
       });
-      AdminView.updateOrderRow(updated);
-      if (selectEl) {
-        selectEl.dataset.current = updated.status || status;
-        selectEl.disabled = false;
+      const index = this.orders.findIndex((o) => o.order_id === orderId);
+      if (index >= 0) {
+        this.orders[index] = { ...this.orders[index], ...updated };
+      } else {
+        this.orders.push(updated);
       }
+      this.applyFilters();
       AdminView.showToast(`✔ Order ${orderId} marked as ${(updated.status || status).toUpperCase()}.`);
     } catch (error) {
       console.warn("[AdminController.updateOrderStatus]", error);
@@ -135,6 +163,22 @@ export const AdminController = {
         selectEl.disabled = false;
       }
       AdminView.showToast(error.message || "Failed to update order status.", "error");
+    }
+  },
+
+  async showOrderDetails(orderId) {
+    if (!orderId) return;
+    try {
+      AdminView.showModalLoading();
+      const detail = await AdminModel.fetchOrderDetails({
+        adminId: this.user.id,
+        orderId,
+      });
+      AdminView.renderOrderDetails(detail);
+    } catch (error) {
+      console.warn("[AdminController.showOrderDetails]", error);
+      AdminView.closeModal();
+      AdminView.showToast(error.message || "Failed to load order details.", "error");
     }
   },
 };
