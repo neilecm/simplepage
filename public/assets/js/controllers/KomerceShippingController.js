@@ -81,13 +81,18 @@ export const KomerceShippingController = {
   },
 
   bindEvents() {
-    this.provinceSelect?.addEventListener("change", this.handleProvinceChange, {
-      capture: true,
-    });
-    this.citySelect?.addEventListener("change", this.handleCityChange, {
-      capture: true,
-    });
+    this.provinceSelect?.addEventListener(
+      "change",
+      this.handleProvinceChange,
+      true
+    );
+    this.citySelect?.addEventListener("change", this.handleCityChange, true);
     this.districtSelect?.addEventListener(
+      "change",
+      this.handleDistrictChange,
+      true
+    );
+    this.subdistrictSelect?.addEventListener(
       "change",
       this.handleDistrictChange,
       true
@@ -148,10 +153,12 @@ export const KomerceShippingController = {
     try {
       this.setMetaMessage("Loading districts…");
       const res = await KomerceShippingModel.fetchSubdistrictsKomerce(cityId);
-      this.populateSelect(this.districtSelect, res, {
+      const map = {
         text: ["subdistrict_name", "district_name", "name"],
         value: ["subdistrict_id", "district_id", "id"],
-      });
+      };
+      this.populateSelect(this.districtSelect, res, map);
+      this.populateSelect(this.subdistrictSelect, res, map);
       this.setMetaMessage("");
     } catch (error) {
       console.error("[KomerceShippingController.handleCityChange]", error);
@@ -167,9 +174,11 @@ export const KomerceShippingController = {
       this.setMetaMessage("Select courier to view available services.");
       return;
     }
+    const destination =
+      event.target.value || this.districtSelect?.value || this.subdistrictSelect?.value;
     await this.loadServices({
       courier: this.courierSelect.value,
-      destination: event.target.value,
+      destination,
     });
   },
 
@@ -277,7 +286,7 @@ export const KomerceShippingController = {
     }`.trim();
 
     this._savedServiceKey = key;
-    localStorage.setItem("shipping_cost", String(service.cost));
+    localStorage.setItem("shipping_cost", service.cost);
     localStorage.setItem("shipping_service", key);
     localStorage.setItem(
       "shipping_selection_meta",
@@ -353,7 +362,16 @@ export const KomerceShippingController = {
   populateSelect(select, response, map) {
     if (!select) return;
     const items = toArray(response);
-    select.innerHTML = '<option value="">-- Select --</option>';
+    const placeholders = {
+      province: "-- Select Province --",
+      city: "-- Select City --",
+      district: "-- Select District --",
+      subdistrict: "-- Select Subdistrict --",
+    };
+    const placeholder =
+      placeholders[select.id] || `-- Select ${select.id || "Option"} --`;
+
+    select.innerHTML = `<option value="">${placeholder}</option>`;
 
     items.forEach((item) => {
       const option = document.createElement("option");

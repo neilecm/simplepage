@@ -427,6 +427,7 @@
     const USE_KOMERCE = true; // Switch to false to revert to RajaOngkir
 
     window.__USE_KOMERCE__ = USE_KOMERCE;
+    localStorage.setItem("use_komerce_shipping", USE_KOMERCE ? "1" : "0");
 
     if (USE_KOMERCE) {
       console.log("Using Komerce Delivery API");
