@@ -69,15 +69,32 @@
     <div class="thanks-container">
       <h1>🎉 Payment Successful!</h1>
       <p>Your order has been confirmed.<br>We’ll email you once it’s on its way.</p>
+      <div class="komerce-status-block">
+        <p id="komerce-status">Arranging pickup…</p>
+        <button id="komerce-download-label" style="display: none;">Download Label</button>
+      </div>
       <a href="index.html" id="continue-link">Continue Shopping</a>
-      <div class="countdown">Redirecting to home in <span id="timer">10</span> seconds...</div>
+      <div class="countdown">Redirecting to home in <span id="timer">15</span> seconds...</div>
     </div>
   </main>
   <footer>&copy; 2025 Cera Brasileira. All rights reserved.</footer>
   <script type="module">
-  import { startRedirectCountdown } from "./assets/js/redirect-timer.js";
-  startRedirectCountdown(10, "#continue-link", "#timer");
-</script>
+    import { startRedirectCountdown } from "./assets/js/redirect-timer.js";
+    import { KomerceOrderController } from "./assets/js/controllers/KomerceOrderController.js";
+
+    startRedirectCountdown(15, "#continue-link", "#timer");
+
+    const useKomerce = window.__USE_KOMERCE__ ?? localStorage.getItem("use_komerce_shipping") === "1";
+
+    if (useKomerce) {
+      KomerceOrderController.init();
+    } else {
+      const statusEl = document.getElementById("komerce-status");
+      if (statusEl) {
+        statusEl.textContent = "Shipping label available once order is processed.";
+      }
+    }
+  </script>
 
 </body>
 </html>
