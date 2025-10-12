@@ -24,8 +24,23 @@ export const PaymentView = {
   },
 
   showSuccess() {
+    // ✅ Fixed redirect to successful-payment.html
     this.showStatus("✅ Payment successful! Redirecting...", "success");
-    setTimeout(() => (window.location.href = "/success.html"), 2000);
+    setTimeout(() => {
+      window.location.href = "/successful-payment.html";
+    }, 1500);
+
+    // ✅ Added fallback redirect safety with loader feedback
+    const container = document.getElementById("snap-container");
+    setTimeout(() => {
+      if (!window.location.href.includes("successful-payment.html")) {
+        if (container) {
+          container.innerHTML =
+            '<p style="color: #047857; font-weight: 500;">Redirecting… Please wait.</p>';
+        }
+        window.location.replace("/successful-payment.html");
+      }
+    }, 3000);
   },
 
   showPending() {
