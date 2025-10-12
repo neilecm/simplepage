@@ -15,6 +15,22 @@ export const KomerceOrderController = {
       return;
     }
 
+    const apiFlag =
+      window.KOMERCE_API_KEY ||
+      window.__KOMERCE__?.apiKey ||
+      (localStorage.getItem("komerce_api_status") !== "missing" &&
+        localStorage.getItem("komerce_api_status"));
+
+    if (!apiFlag) {
+      console.warn("⚠️ Komerce API key missing — skipping pickup scheduling.");
+      this.setStatus(
+        "Shipping label available once order is processed.",
+        "info"
+      );
+      this.buttonEl.style.display = "none";
+      return;
+    }
+
     try {
       this.setStatus("Scheduling Komerce pickup…");
 
@@ -50,8 +66,21 @@ export const KomerceOrderController = {
         this.setStatus("Pickup confirmed, but label not available.", "warning");
       }
     } catch (error) {
-      console.error("[KomerceOrderController] error:", error);
-      this.setStatus(error.message || "Failed to complete Komerce flow.", "error");
+      const message = error?.message || "Failed to complete Komerce flow.";
+      const missingKey = typeof message === "string" && message.includes("KOMERCE_API_KEY");
+
+      if (missingKey) {
+        console.warn("⚠️ Komerce API key missing — skipping pickup scheduling.");
+        localStorage.setItem("komerce_api_status", "missing");
+        this.setStatus(
+          "Shipping label available once order is processed.",
+          "info"
+        );
+      } else {
+        console.error("[KomerceOrderController] error:", error);
+        this.setStatus(message, "error");
+      }
+      this.buttonEl.style.display = "none";
     }
   },
 

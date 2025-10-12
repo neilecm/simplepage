@@ -44,11 +44,43 @@ export const PaymentView = {
   },
 
   showPending() {
-    this.showStatus("⏳ Payment pending. Please complete your transaction.", "pending");
+    // ✅ Added redirect fallback for pending state
+    this.showStatus("⏳ Payment pending. Redirecting…", "pending");
+    const container = document.getElementById("snap-container");
+
+    setTimeout(() => {
+      window.location.href = "/pending-payment.html";
+    }, 1500);
+
+    setTimeout(() => {
+      if (!window.location.href.includes("pending-payment.html")) {
+        if (container) {
+          container.innerHTML =
+            '<p style="color: #e6b800; font-weight: 500;">Redirecting… Please wait.</p>';
+        }
+        window.location.replace("/pending-payment.html");
+      }
+    }, 3000);
   },
 
   showError() {
-    this.showStatus("❌ Payment failed. Please try again later.", "error");
+    // ✅ Added redirect fallback for failed state
+    this.showStatus("❌ Payment failed. Redirecting…", "error");
+    const container = document.getElementById("snap-container");
+
+    setTimeout(() => {
+      window.location.href = "/failed-payment.html";
+    }, 1500);
+
+    setTimeout(() => {
+      if (!window.location.href.includes("failed-payment.html")) {
+        if (container) {
+          container.innerHTML =
+            '<p style="color: red; font-weight: 500;">Redirecting… Please wait.</p>';
+        }
+        window.location.replace("/failed-payment.html");
+      }
+    }, 3000);
   },
 
   showClosed() {
