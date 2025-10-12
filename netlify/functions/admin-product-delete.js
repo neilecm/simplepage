@@ -1,4 +1,4 @@
-// netlify/functions/admin-get-orders.js
+// netlify/functions/admin-product-delete.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -8,14 +8,10 @@ const supabase = createClient(
 
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: "",
-    };
+    return { statusCode: 200, headers: corsHeaders(), body: "" };
   }
 
-  if (event.httpMethod !== "GET") {
+  if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
       headers: corsHeaders(),
@@ -37,7 +33,7 @@ export async function handler(event) {
       .from("users")
       .select("id, role")
       .eq("id", adminId)
-      .single();
+      .maybeSingle();
 
     if (adminError || !admin || admin.role !== "admin") {
       return {
@@ -47,46 +43,30 @@ export async function handler(event) {
       };
     }
 
-    const params = event.queryStringParameters || {};
-    const status = params.status;
-    const search = params.search;
-    const page = Number(params.page || 1);
-    const limit = Number(params.limit || 50);
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    const { id } = JSON.parse(event.body || "{}");
 
-    let query = supabase
-      .from("orders")
-      .select(
-        "order_id, user_id, customer_name, customer_email, total, shipping_cost, payment_status, shipping_provider, status, created_at, updated_at",
-        { count: "exact" }
-      )
-      .order("created_at", { ascending: false })
-      .range(from, to);
-
-    if (status && status !== "all") {
-      query = query.eq("status", status);
+    if (!id) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Product id is required" }),
+      };
     }
 
-    if (search) {
-      query = query.or(
-        `order_id.ilike.%${search}%,customer_name.ilike.%${search}%`
-      );
-    }
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", id);
 
-    const { data, error, count } = await query;
-
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return {
       statusCode: 200,
       headers: corsHeaders(),
-      body: JSON.stringify({ data: data || [], count: count ?? 0 }),
+      body: JSON.stringify({ success: true }),
     };
   } catch (error) {
-    console.error("[admin-get-orders]", error);
+    console.error("[admin-product-delete]", error);
     return {
       statusCode: 500,
       headers: corsHeaders(),
@@ -102,3 +82,4 @@ function corsHeaders() {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 }
+

@@ -115,6 +115,13 @@ Switch Midtrans to Production in /netlify/functions/create-transaction.js.
 ✅ Midtrans payments & Komerce shipping verified.
 ✅ Supabase Auth and role-based protection enabled.
 
+🧩 Product Management Module
+Full CRUD + CSV/Excel bulk import.
+Image/video uploads via Supabase Storage.
+Manage variations, attributes, and pricing.
+Search, filter, and paginate product list.
+MVC architecture: ProductModel / ProductView / ProductController.
+
 🧱 System Architecture
 Text/Markdown (for README)
                         ┌──────────────────────────────────────────┐
