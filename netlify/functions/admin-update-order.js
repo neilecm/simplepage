@@ -53,12 +53,14 @@ export async function handler(event) {
       };
     }
 
+    const updated_at = new Date().toISOString();
+
     const { data, error } = await supabase
       .from("orders")
-      .update({ status })
+      .update({ status, updated_at })
       .eq("order_id", order_id)
       .select(
-        "order_id, user_id, customer_name, customer_email, total, shipping_cost, payment_status, shipping_provider, status, created_at"
+        "order_id, user_id, customer_name, customer_email, total, shipping_cost, payment_status, shipping_provider, status, created_at, updated_at"
       )
       .single();
 
@@ -67,7 +69,7 @@ export async function handler(event) {
     return {
       statusCode: 200,
       headers: corsHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify({ success: true, order: data }),
     };
   } catch (error) {
     console.error("[admin-update-order]", error);
@@ -86,4 +88,3 @@ function corsHeaders() {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 }
-

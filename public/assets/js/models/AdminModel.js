@@ -45,7 +45,7 @@ export const AdminModel = {
    * @param {{ adminId: string, orderId: string, status: string }} params
    */
   async updateOrderStatus({ adminId, orderId, status }) {
-    return request("/.netlify/functions/admin-update-order", {
+    const result = await request("/.netlify/functions/admin-update-order", {
       method: "POST",
       headers: {
         "x-admin-id": adminId,
@@ -55,6 +55,6 @@ export const AdminModel = {
         status,
       }),
     });
+    return result.order || result;
   },
 };
-

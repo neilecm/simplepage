@@ -54,7 +54,7 @@ export async function handler(event) {
     let query = supabase
       .from("orders")
       .select(
-        "order_id, user_id, customer_name, customer_email, total, shipping_cost, payment_status, shipping_provider, status, created_at"
+        "order_id, user_id, customer_name, customer_email, total, shipping_cost, payment_status, shipping_provider, status, created_at, updated_at"
       )
       .order("created_at", { ascending: false });
 
@@ -96,4 +96,3 @@ function corsHeaders() {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 }
-

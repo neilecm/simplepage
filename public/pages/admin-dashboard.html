@@ -154,8 +154,8 @@
 
     .badge-pending { background: rgba(255, 208, 75, 0.18); color: #b45309; }
     .badge-paid { background: rgba(34, 197, 94, 0.18); color: #166534; }
-    .badge-shipped { background: rgba(59, 130, 246, 0.18); color: #1d4ed8; }
-    .badge-delivered { background: rgba(16, 185, 129, 0.18); color: #047857; }
+    .badge-shipped { background: rgba(251, 146, 60, 0.18); color: #b45309; }
+    .badge-completed { background: rgba(34, 197, 94, 0.18); color: #166534; }
     .badge-cancelled { background: rgba(239, 68, 68, 0.18); color: #b91c1c; }
 
     .actions {
@@ -163,13 +163,6 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-    }
-
-    .actions select {
-      border-radius: 999px;
-      border: 1px solid rgba(230, 52, 70, 0.25);
-      padding: 6px 12px;
-      background: #fffdfa;
     }
 
     .actions button {
@@ -180,6 +173,54 @@
       color: #fff;
       font-weight: 600;
       cursor: pointer;
+    }
+
+    .status-cell {
+      display: grid;
+      gap: 6px;
+      align-items: start;
+      max-width: 200px;
+    }
+
+    .status-cell select {
+      border-radius: 10px;
+      border: 1px solid rgba(230, 52, 70, 0.25);
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      background: #fffdfa;
+      color: #1f2937;
+    }
+
+    .status-updated {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    #admin-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(34, 197, 94, 0.92);
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-weight: 600;
+      box-shadow: 0 18px 40px rgba(34, 197, 94, 0.25);
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 50;
+    }
+
+    #admin-toast.error {
+      background: rgba(239, 68, 68, 0.92);
+      box-shadow: 0 18px 40px rgba(239, 68, 68, 0.25);
+    }
+
+    #admin-toast.show {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     #orders-empty {
@@ -217,6 +258,8 @@
     <button id="admin-logout">Logout</button>
   </header>
 
+  <div id="admin-toast" hidden></div>
+
   <main class="admin-wrapper">
     <section class="filter-bar">
       <div class="filter-controls">
@@ -226,7 +269,7 @@
           <option value="pending">Pending</option>
           <option value="paid">Paid</option>
           <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
+          <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </select>
       </div>
