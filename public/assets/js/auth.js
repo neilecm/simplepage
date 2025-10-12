@@ -12,6 +12,10 @@ function getUser() {
 // Logout
 function logout() {
   localStorage.removeItem("currentUser");
+  localStorage.removeItem("user");
+  localStorage.removeItem("user_role");
+  localStorage.removeItem("user_email");
+  localStorage.removeItem("auth_token");
   window.location.href = "login.html";
 }
 
@@ -89,7 +93,17 @@ async function loginUser(event) {
 
     if (res.ok) {
       localStorage.setItem("user", JSON.stringify(data.user));
-      alert("Welcome " + data.user.name);
+      localStorage.setItem("currentUser", JSON.stringify(data.user));
+      if (data.token) {
+        localStorage.setItem("auth_token", data.token);
+      }
+      if (data.user?.role) {
+        localStorage.setItem("user_role", data.user.role);
+      }
+      if (data.user?.email) {
+        localStorage.setItem("user_email", data.user.email);
+      }
+      alert("Welcome " + (data.user.name || data.user.email));
       window.location.href = "cart.html";
     } else {
       alert("Login failed: " + data.error);

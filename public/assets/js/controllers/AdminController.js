@@ -11,7 +11,12 @@ export const AdminController = {
     this.user = this.getCurrentUser();
 
     if (!this.user) {
-      window.location.href = "/login.html";
+      const storedRole = localStorage.getItem("user_role");
+      if (storedRole && storedRole !== "admin") {
+        window.location.href = "/index.html";
+      } else {
+        window.location.href = "/login.html";
+      }
       return;
     }
 
@@ -29,6 +34,9 @@ export const AdminController = {
   bindEvents() {
     this.logoutBtn?.addEventListener("click", () => {
       localStorage.removeItem("user");
+      localStorage.removeItem("user_role");
+      localStorage.removeItem("user_email");
+      localStorage.removeItem("auth_token");
       window.location.href = "/login.html";
     });
 
@@ -65,6 +73,10 @@ export const AdminController = {
     try {
       const user = JSON.parse(localStorage.getItem("user") || "null");
       if (!user?.id) return null;
+      user.role = user.role || localStorage.getItem("user_role") || "user";
+      if (user.role !== "admin") {
+        return null;
+      }
       return user;
     } catch {
       return null;
