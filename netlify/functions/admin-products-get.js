@@ -1,4 +1,4 @@
-// netlify/functions/admin-get-orders.js
+// netlify/functions/admin-products-get.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -8,11 +8,7 @@ const supabase = createClient(
 
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: "",
-    };
+    return { statusCode: 200, headers: corsHeaders(), body: "" };
   }
 
   if (event.httpMethod !== "GET") {
@@ -37,7 +33,7 @@ export async function handler(event) {
       .from("users")
       .select("id, role")
       .eq("id", adminId)
-      .single();
+      .maybeSingle();
 
     if (adminError || !admin || admin.role !== "admin") {
       return {
@@ -48,21 +44,29 @@ export async function handler(event) {
     }
 
     const params = event.queryStringParameters || {};
-    const status = params.status;
-    const search = params.search;
     const page = Number(params.page || 1);
-    const limit = Number(params.limit || 50);
+    const limit = Number(params.limit || 10);
+    const search = params.search || "";
+    const status = params.status;
+    const id = params.id;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
     let query = supabase
-      .from("orders")
-      .select(
-        "order_id, user_id, customer_name, customer_email, total, shipping_cost, payment_status, shipping_provider, status, created_at, updated_at",
-        { count: "exact" }
-      )
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .from("products")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    if (id) {
+      query = query.eq("id", id).maybeSingle();
+      const { data, error } = await query;
+      if (error) throw error;
+      return {
+        statusCode: 200,
+        headers: corsHeaders(),
+        body: JSON.stringify(data || null),
+      };
+    }
 
     if (status && status !== "all") {
       query = query.eq("status", status);
@@ -70,15 +74,12 @@ export async function handler(event) {
 
     if (search) {
       query = query.or(
-        `order_id.ilike.%${search}%,customer_name.ilike.%${search}%`
+        `name.ilike.%${search}%,sku.ilike.%${search}%`
       );
     }
 
-    const { data, error, count } = await query;
-
-    if (error) {
-      throw error;
-    }
+    const { data, count, error } = await query.range(from, to);
+    if (error) throw error;
 
     return {
       statusCode: 200,
@@ -86,7 +87,7 @@ export async function handler(event) {
       body: JSON.stringify({ data: data || [], count: count ?? 0 }),
     };
   } catch (error) {
-    console.error("[admin-get-orders]", error);
+    console.error("[admin-products-get]", error);
     return {
       statusCode: 500,
       headers: corsHeaders(),
@@ -102,3 +103,4 @@ function corsHeaders() {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 }
+

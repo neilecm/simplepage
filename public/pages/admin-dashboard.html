@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🧾 Orders Dashboard | Cera Brasileira</title>
   <link rel="stylesheet" href="../assets/css/style.css?v=4" />
+  <script>
+    window.__SUPABASE__ = window.__SUPABASE__ || {
+      url: "https://cdadixyavaxkzjovrlek.supabase.co",
+      anonKey:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYWRpeHlhdmF4a3pqb3ZybGVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5NTcwNTEsImV4cCI6MjA3NDUzMzA1MX0.8SrOwwxy7rzBcM3ctFyLQ93hQy2OjsVp8ZbKGGx8kcc",
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --brand-red: #e63446;
@@ -22,9 +31,9 @@
 
     header.navbar {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 5%;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 5% 12px;
       background: var(--brand-red);
       color: #fff;
       position: sticky;
@@ -35,24 +44,36 @@
     header.navbar h1 {
       margin: 0;
       font-size: 1.6rem;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
     }
 
-    header.navbar nav a {
-      color: #fff;
-      text-decoration: none;
-      margin-right: 16px;
-      font-weight: 600;
+    .nav-tabs {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
-    header.navbar button {
-      background: #fff;
-      color: var(--brand-red);
-      border: none;
-      border-radius: 999px;
+    .tab-button,
+    #admin-logout {
       padding: 8px 18px;
+      border-radius: 999px;
+      border: none;
       font-weight: 600;
       cursor: pointer;
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+      transition: background 0.2s ease;
+    }
+
+    .tab-button.active {
+      background: #fff;
+      color: var(--brand-red);
+    }
+
+    .tab-button:hover,
+    #admin-logout:hover {
+      background: rgba(255, 255, 255, 0.35);
     }
 
     main.admin-wrapper {
@@ -316,6 +337,190 @@
       transform: translateY(0);
     }
 
+    .product-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+      gap: 24px;
+    }
+
+    .product-card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 18px 40px rgba(31, 41, 55, 0.12);
+      border: 1px solid rgba(230, 52, 70, 0.08);
+    }
+
+    .product-card h2 {
+      margin-top: 0;
+      color: var(--brand-red);
+      font-size: 1.2rem;
+      margin-bottom: 18px;
+    }
+
+    .product-form section {
+      margin-bottom: 22px;
+    }
+
+    .product-form label {
+      font-weight: 600;
+      color: #374151;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .product-form input,
+    .product-form textarea,
+    .product-form select {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(230, 52, 70, 0.2);
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      background: #fffdfa;
+    }
+
+    .media-previews {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .media-thumb {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(230, 52, 70, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      aspect-ratio: 1 / 1;
+    }
+
+    .media-thumb img,
+    .media-thumb video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .media-thumb button {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      border: none;
+      background: rgba(230, 52, 70, 0.9);
+      color: #fff;
+      border-radius: 999px;
+      width: 22px;
+      height: 22px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    .group-row {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .section-header button {
+      border: none;
+      background: var(--brand-gold);
+      color: #b45309;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .pill-button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--brand-red);
+      color: #fff;
+    }
+
+    .pill-button.secondary {
+      background: rgba(230, 52, 70, 0.08);
+      color: var(--brand-red);
+    }
+
+    .product-list-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .product-search-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .pagination {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .pagination button {
+      border: none;
+      border-radius: 8px;
+      padding: 6px 12px;
+      background: rgba(230, 52, 70, 0.1);
+      color: var(--brand-red);
+      cursor: pointer;
+    }
+
+    .product-table img {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      object-fit: cover;
+    }
+
+    .product-table td:first-child {
+      width: 64px;
+    }
+
+    .product-table td .row-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row-actions button {
+      border-radius: 8px;
+      border: none;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+
+    .row-actions .edit-btn {
+      background: rgba(34, 197, 94, 0.16);
+      color: #166534;
+    }
+
+    .row-actions .delete-btn {
+      background: rgba(239, 68, 68, 0.16);
+      color: #b91c1c;
+    }
+
     #orders-empty {
       padding: 24px;
       text-align: center;
@@ -338,17 +543,12 @@
 </head>
 <body>
   <header class="navbar">
-    <div>
-      <h1>🧾 Orders Dashboard</h1>
+    <h1>🧠 Admin Control Panel</h1>
+    <div class="nav-tabs">
+      <button class="tab-button active" data-tab="orders">Orders</button>
+      <button class="tab-button" data-tab="products">My Products</button>
+      <button id="admin-logout">Logout</button>
     </div>
-    <div>
-      <nav>
-        <a href="/index.html">Home</a>
-        <a href="/products.html">Products</a>
-        <a href="/checkout.html">Checkout</a>
-      </nav>
-    </div>
-    <button id="admin-logout">Logout</button>
   </header>
 
   <div id="admin-toast" hidden></div>
@@ -361,7 +561,7 @@
   </div>
 
   <main class="admin-wrapper">
-    <section class="filter-bar">
+    <section id="orders-section" class="filter-bar">
       <div class="filter-controls">
         <input type="search" id="order-search" placeholder="Search orders…" aria-label="Search orders" />
         <select id="order-status-filter" aria-label="Filter orders by status">
@@ -376,7 +576,7 @@
       <span style="color:#6b7280; font-size:0.9rem;">Manage orders across the marketplace in real time.</span>
     </section>
 
-    <section class="orders-card">
+    <section class="orders-card" id="orders-card">
       <p id="admin-error" hidden></p>
       <div id="admin-loading">Loading orders…</div>
       <div style="overflow-x:auto;">
@@ -398,7 +598,168 @@
       </div>
       <div id="orders-empty" hidden>No orders found for the current filters.</div>
     </section>
+    <section id="products-section" hidden>
+      <div class="product-layout">
+        <div class="product-card">
+          <h2>Product Form</h2>
+          <form id="product-form" class="product-form">
+            <section>
+              <div class="section-header">
+                <h3>Media</h3>
+                <small style="color:#6b7280;">Up to 8 images & 1 video</small>
+              </div>
+              <label for="product-images">Images</label>
+              <input type="file" id="product-images" name="product-images" accept="image/*" multiple />
+              <div id="image-previews" class="media-previews"></div>
+              <label for="product-video">Video (optional)</label>
+              <input type="file" id="product-video" name="product-video" accept="video/*" />
+              <div id="video-preview" class="media-previews"></div>
+            </section>
+
+            <section>
+              <div class="section-header"><h3>Basic Information</h3></div>
+              <div class="group-row">
+                <div>
+                  <label for="product-name">Product Name *</label>
+                  <input type="text" id="product-name" name="product-name" required />
+                </div>
+                <div>
+                  <label for="product-category">Category *</label>
+                  <select id="product-category" name="product-category" required>
+                    <option value="">Select Category</option>
+                    <option>Accessories</option>
+                    <option>Jewelry</option>
+                    <option>Beauty</option>
+                    <option>Home Decor</option>
+                  </select>
+                </div>
+              </div>
+              <label for="product-description">Description *</label>
+              <textarea id="product-description" name="product-description" rows="4" required></textarea>
+              <div class="group-row" style="margin-top:12px;">
+                <div>
+                  <label for="product-price">Price (Rp) *</label>
+                  <input type="number" id="product-price" name="product-price" min="0" required />
+                </div>
+                <div>
+                  <label for="product-stock">Stock *</label>
+                  <input type="number" id="product-stock" name="product-stock" min="0" required />
+                </div>
+                <div>
+                  <label for="product-sku">SKU *</label>
+                  <input type="text" id="product-sku" name="product-sku" required />
+                </div>
+                <div>
+                  <label for="product-weight">Weight (g) *</label>
+                  <input type="number" id="product-weight" name="product-weight" min="0" required />
+                </div>
+                <div>
+                  <label for="product-status">Status</label>
+                  <select id="product-status" name="product-status">
+                    <option value="active">Active</option>
+                    <option value="draft">Draft</option>
+                    <option value="hidden">Hidden</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <div class="section-header">
+                <h3>Variations</h3>
+                <button type="button" id="add-variation">+ Add Variation</button>
+              </div>
+              <div id="variation-list" class="group-stack" style="display:grid; gap:12px;"></div>
+            </section>
+
+            <section>
+              <div class="section-header">
+                <h3>Attributes</h3>
+                <button type="button" id="add-attribute">+ Add Attribute</button>
+              </div>
+              <div id="attribute-list" class="group-stack" style="display:grid; gap:12px;"></div>
+            </section>
+
+            <section>
+              <div class="section-header"><h3>Purchase Limits</h3></div>
+              <div class="group-row">
+                <div>
+                  <label for="product-min-qty">Min Purchase Quantity</label>
+                  <input type="number" id="product-min-qty" name="product-min-qty" min="1" />
+                </div>
+                <div>
+                  <label for="product-max-qty">Max Purchase Quantity</label>
+                  <input type="number" id="product-max-qty" name="product-max-qty" min="1" />
+                </div>
+              </div>
+            </section>
+
+            <div style="display:flex; gap:12px;">
+              <button type="submit" class="pill-button" id="product-save">Save Product</button>
+              <button type="button" class="pill-button secondary" id="product-reset">Reset Form</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="product-card">
+          <div class="product-list-controls">
+            <div class="product-search-group">
+              <input type="search" id="product-search" placeholder="Search by name or SKU" />
+              <select id="product-status-filter">
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="hidden">Hidden</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="file" id="product-bulk-file" accept=".csv,.xlsx" />
+              <button type="button" class="pill-button secondary" id="product-bulk-upload">Bulk Import</button>
+            </div>
+          </div>
+
+          <div id="product-bulk-progress" style="display:none; margin-bottom:12px; color:#6b7280;"></div>
+
+          <div style="overflow-x:auto;">
+            <table class="product-table" id="products-table">
+              <thead>
+                <tr>
+                  <th>Image</th>
+                  <th>Name</th>
+                  <th>Price</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="products-body"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination" style="margin-top:16px;">
+            <button id="product-prev">Prev</button>
+            <span id="product-page-info">Page 1</span>
+            <button id="product-next">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <div id="product-delete-modal" class="modal" hidden>
+    <div class="modal-dialog" role="dialog" aria-modal="true">
+      <button class="modal-close" id="product-delete-close" aria-label="Close modal">×</button>
+      <div>
+        <h3 style="margin-top:0; color:var(--brand-red);">Delete Product</h3>
+        <p id="product-delete-message">Are you sure you want to delete this product?</p>
+        <div style="display:flex; gap:12px; margin-top:18px;">
+          <button class="pill-button secondary" id="product-delete-cancel">Cancel</button>
+          <button class="pill-button" id="product-delete-confirm" style="background:#ef4444;">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="../assets/js/controllers/AdminController.js"></script>
 </body>

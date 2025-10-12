@@ -1,6 +1,7 @@
 // public/assets/js/controllers/AdminController.js
 import { AdminModel } from "../models/AdminModel.js";
 import { AdminView } from "../views/AdminView.js";
+import { ProductController } from "./ProductController.js";
 
 const FILTER_DEBOUNCE = 300;
 
@@ -24,6 +25,8 @@ export const AdminController = {
 
     AdminView.showLoading();
     this.loadOrders();
+    ProductController.init(this.user);
+    this.switchTab("orders");
   },
 
   cacheElements() {
@@ -31,6 +34,10 @@ export const AdminController = {
     this.filterSelect = document.getElementById("order-status-filter");
     this.table = document.getElementById("orders-table");
     this.logoutBtn = document.getElementById("admin-logout");
+    this.ordersSection = document.getElementById("orders-section");
+    this.ordersCard = document.getElementById("orders-card");
+    this.productsSection = document.getElementById("products-section");
+    this.tabButtons = document.querySelectorAll(".tab-button");
   },
 
   bindEvents() {
@@ -72,6 +79,10 @@ export const AdminController = {
         this.showOrderDetails(orderId);
       }
     });
+
+    this.tabButtons?.forEach((button) =>
+      button.addEventListener("click", () => this.switchTab(button.dataset.tab))
+    );
   },
 
   getCurrentUser() {
@@ -91,11 +102,17 @@ export const AdminController = {
   async loadOrders() {
     try {
       AdminView.showLoading();
-      const orders = await AdminModel.fetchOrders({
+      const response = await AdminModel.fetchOrders({
         adminId: this.user.id,
       });
 
-      this.orders = Array.isArray(orders) ? orders : [];
+      if (response && Array.isArray(response.data)) {
+        this.orders = response.data;
+      } else if (Array.isArray(response)) {
+        this.orders = response;
+      } else {
+        this.orders = [];
+      }
       this.applyFilters();
     } catch (error) {
       console.warn("[AdminController.loadOrders]", error);
@@ -137,6 +154,25 @@ export const AdminController = {
 
     this.filteredOrders = filtered;
     AdminView.renderOrdersTable(filtered);
+  },
+
+  switchTab(tab) {
+    if (this.activeTab === tab) return;
+    this.activeTab = tab;
+
+    this.tabButtons?.forEach((button) =>
+      button.classList.toggle("active", button.dataset.tab === tab)
+    );
+
+    if (tab === "orders") {
+      this.ordersSection?.removeAttribute("hidden");
+      this.ordersCard?.removeAttribute("hidden");
+      this.productsSection?.setAttribute("hidden", "");
+    } else {
+      this.ordersSection?.setAttribute("hidden", "");
+      this.ordersCard?.setAttribute("hidden", "");
+      this.productsSection?.removeAttribute("hidden");
+    }
   },
 
   async updateOrderStatus(orderId, status, previousStatus, selectEl) {
