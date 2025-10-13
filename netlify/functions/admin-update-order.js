@@ -1,9 +1,12 @@
 // netlify/functions/admin-update-order.js
 import { createClient } from "@supabase/supabase-js";
 
+console.log("[INIT] Supabase using service role key in admin-update-order.js");
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
 
 export async function handler(event) {
@@ -12,31 +15,19 @@ export async function handler(event) {
   }
 
   if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
+    return errorResponse(405, "Method not allowed");
   }
 
   const adminId = event.headers["x-admin-id"];
   if (!adminId) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Unauthorized" }),
-    };
+    return errorResponse(401, "Unauthorized");
   }
 
   try {
     const { order_id, status } = JSON.parse(event.body || "{}");
 
     if (!order_id || !status) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "order_id and status are required" }),
-      };
+      return errorResponse(400, "order_id and status are required");
     }
 
     const { data: admin, error: adminError } = await supabase
@@ -45,12 +36,17 @@ export async function handler(event) {
       .eq("id", adminId)
       .single();
 
-    if (adminError || !admin || admin.role !== "admin") {
-      return {
-        statusCode: 403,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "Forbidden" }),
-      };
+    if (adminError) {
+      console.error("[admin-update-order] Error:", adminError);
+      return errorResponse(
+        adminError.status || 400,
+        adminError.message,
+        adminError.details || null
+      );
+    }
+
+    if (!admin || admin.role !== "admin") {
+      return errorResponse(403, "Forbidden");
     }
 
     const updated_at = new Date().toISOString();
@@ -66,18 +62,11 @@ export async function handler(event) {
 
     if (error) throw error;
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: JSON.stringify({ success: true, order: data }),
-    };
+    console.log("[admin-update-order] Success:", { adminId, order_id, status });
+    return successResponse("Order updated successfully", data);
   } catch (error) {
-    console.error("[admin-update-order]", error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: error.message || "Internal Server Error" }),
-    };
+    console.error("[admin-update-order] Error:", error);
+    return errorResponse(error.status || 500, error.message, error.details || null);
   }
 }
 
@@ -88,3 +77,18 @@ function corsHeaders() {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 }
+
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});

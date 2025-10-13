@@ -512,3 +512,54 @@ button:hover {
   margin-top: 0;
   color: #e63946;
 }
+
+.upload-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.upload-progress-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.upload-progress-item strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.upload-progress-track {
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.upload-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  width: 0%;
+  transition: width 0.2s ease-in-out;
+}
+
+.upload-progress-item.success .upload-progress-bar {
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+}
+
+.upload-progress-item.error .upload-progress-bar {
+  background: linear-gradient(90deg, #dc2626, #f87171);
+}
+
+.upload-progress-item small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #6b7280;
+}

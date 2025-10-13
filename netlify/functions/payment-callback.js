@@ -2,6 +2,10 @@ import midtransClient from "midtrans-client";
 
 export const handler = async (event) => {
   try {
+    if (event.httpMethod && event.httpMethod !== "POST") {
+      return errorResponse(405, "Method not allowed");
+    }
+
     const notification = JSON.parse(event.body || "{}");
 
     // Initialize Midtrans Core API client
@@ -19,18 +23,28 @@ export const handler = async (event) => {
     // Example of what you might want to log or handle:
     // const { order_id, transaction_status, fraud_status } = statusResponse;
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: "Notification processed successfully",
-        status: statusResponse.transaction_status
-      })
-    };
+    console.log("[payment-callback] Success:", {
+      orderId: statusResponse.order_id,
+      status: statusResponse.transaction_status,
+    });
+    return successResponse("Notification processed successfully", statusResponse);
   } catch (error) {
     console.error("Midtrans payment-callback error:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
-    };
+    return errorResponse(error?.status || 500, error?.message, error?.details || null);
   }
 };
+
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, data })
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details
+  })
+});

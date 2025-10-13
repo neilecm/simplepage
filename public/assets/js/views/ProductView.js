@@ -2,6 +2,48 @@
 import { format } from "https://esm.sh/date-fns@3.6.0";
 
 const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+const previewUrlCache = new WeakMap();
+const SUPABASE_URL = window.__SUPABASE__?.url ? window.__SUPABASE__.url.replace(/\/+$/, "") : null;
+const PRODUCT_MEDIA_BASE = SUPABASE_URL
+  ? `${SUPABASE_URL}/storage/v1/object/public/product_media/`
+  : null;
+
+const encodePath = (path = "") =>
+  path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+const toAbsoluteMediaUrl = (value) => {
+  if (typeof value !== "string" || !value) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+  const normalized = value.startsWith("public/") ? value : `public/${value}`;
+  return PRODUCT_MEDIA_BASE ? `${PRODUCT_MEDIA_BASE}${encodePath(normalized)}` : value;
+};
+
+function resolvePreviewUrl(item) {
+  if (!item) return "";
+  if (typeof item === "string") return toAbsoluteMediaUrl(item);
+  if (item.url) return item.url;
+  if (item instanceof File || item instanceof Blob) {
+    if (previewUrlCache.has(item)) {
+      return previewUrlCache.get(item);
+    }
+    const url = URL.createObjectURL(item);
+    previewUrlCache.set(item, url);
+    return url;
+  }
+  return "";
+}
+
+function revokePreviewUrl(item) {
+  if (!item || typeof item === "string") return;
+  const url = previewUrlCache.get(item);
+  if (url) {
+    URL.revokeObjectURL(url);
+    previewUrlCache.delete(item);
+  }
+}
 
 function safeFormatDate(value) {
   if (!value) return "-";
@@ -28,8 +70,8 @@ export const ProductView = {
   cache() {
     this.form = document.getElementById("product-form");
     this.resetBtn = document.getElementById("product-reset");
-    this.imageInput = document.getElementById("product-images");
-    this.videoInput = document.getElementById("product-video");
+    this.mediaInput = document.getElementById("product-media");
+    this.uploadProgressList = document.getElementById("product-upload-progress");
     this.imagePreviews = document.getElementById("image-previews");
     this.videoPreview = document.getElementById("video-preview");
     this.variationList = document.getElementById("variation-list");
@@ -69,32 +111,36 @@ export const ProductView = {
 
     this.addAttributeBtn?.addEventListener("click", () => this.controller.addAttribute());
 
-    this.imageInput?.addEventListener("change", (event) => {
+    this.mediaInput?.addEventListener("change", (event) => {
       const files = Array.from(event.target.files || []);
-      const existing = (this.controller.currentImages || []).filter(
-        (item) => typeof item === "string"
+      const existingImages = Array.isArray(this.controller.currentImages)
+        ? this.controller.currentImages
+        : [];
+      const preservedImages = existingImages.filter(
+        (item) => typeof item === "string" || item instanceof File
       );
-      const combined = [...files, ...existing];
-      const previews = combined.map((item) =>
-        typeof item === "string"
-          ? { url: item }
-          : { file: item, url: URL.createObjectURL(item) }
-      );
-      this.renderImagePreviews(previews);
-      this.controller.setMediaState({
-        images: combined,
-        video: this.controller.currentVideo,
-      });
-    });
+      let updatedVideo =
+        this.controller.currentVideo instanceof File || typeof this.controller.currentVideo === "string"
+          ? this.controller.currentVideo
+          : null;
 
-    this.videoInput?.addEventListener("change", (event) => {
-      const file = event.target.files?.[0];
-      if (file) {
-        this.renderVideoPreview({ file, url: URL.createObjectURL(file) });
-        this.controller.setMediaState({
-          images: this.controller.currentImages,
-          video: file,
-        });
+      files.forEach((file) => {
+        if (file.type?.startsWith("video/")) {
+          updatedVideo = file;
+        } else {
+          preservedImages.push(file);
+        }
+      });
+
+      this.controller.setMediaState({
+        images: preservedImages,
+        video: updatedVideo,
+      });
+
+      this.renderImagePreviews(preservedImages);
+      this.renderVideoPreview(updatedVideo);
+      if (this.mediaInput) {
+        this.mediaInput.value = "";
       }
     });
 
@@ -286,36 +332,13 @@ export const ProductView = {
     }));
     this.controller.setAttributeState(state);
   },
-
-  renderImagePreviews(items = []) {
-    this.imagePreviews.innerHTML = items
-      .map(
-        (item, idx) => `
-          <div class="media-thumb" data-index="${idx}" data-type="image">
-            <img src="${item.url || item}" alt="preview" />
-            <button type="button">×</button>
-          </div>
-        `
-      )
-      .join("");
-  },
-
-  renderVideoPreview(item) {
-    this.videoPreview.innerHTML = item
-      ? `
-          <div class="media-thumb" data-type="video">
-            <video src="${item.url || item}" controls></video>
-            <button type="button">×</button>
-          </div>
-        `
-      : "";
-  },
-
   renderProductList({ products, page, limit, total }) {
     if (!this.productsBody) return;
     this.productsBody.innerHTML = products
       .map((product) => {
-        const thumb = product.images?.[0] || "https://placehold.co/80x80/FFF5F5/E63446?text=No+Image";
+        const thumb =
+          toAbsoluteMediaUrl(product.images?.[0]) ||
+          "https://placehold.co/80x80/FFF5F5/E63446?text=No+Image";
         return `
           <tr>
             <td><img src="${thumb}" alt="${product.name}" /></td>
@@ -342,6 +365,53 @@ export const ProductView = {
     if (this.pageInfo) this.pageInfo.textContent = `Page ${page} of ${maxPage}`;
   },
 
+  showUploadProgress(id, name) {
+    if (!this.uploadProgressList) return;
+    const item = document.createElement("div");
+    item.className = "upload-progress-item";
+    item.dataset.id = id;
+    item.innerHTML = `
+      <strong>${name}</strong>
+      <div class="upload-progress-track">
+        <div class="upload-progress-bar"></div>
+      </div>
+      <small>Uploading…</small>
+    `;
+    this.uploadProgressList.appendChild(item);
+  },
+
+  updateUploadProgress(id, percent) {
+    if (!this.uploadProgressList) return;
+    const item = this.uploadProgressList.querySelector(`[data-id="${id}"]`);
+    if (!item) return;
+    const bar = item.querySelector(".upload-progress-bar");
+    const label = item.querySelector("small");
+    if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+    if (label) label.textContent = `Uploading… ${Math.round(percent)}%`;
+  },
+
+  completeUploadProgress(id, status = "success", message = "") {
+    if (!this.uploadProgressList) return;
+    const item = this.uploadProgressList.querySelector(`[data-id="${id}"]`);
+    if (!item) return;
+    item.classList.remove("success", "error");
+    item.classList.add(status === "error" ? "error" : "success");
+    const bar = item.querySelector(".upload-progress-bar");
+    const label = item.querySelector("small");
+    if (bar) bar.style.width = "100%";
+    if (label) {
+      label.textContent =
+        status === "error"
+          ? message || "Upload failed"
+          : message || "Upload complete";
+    }
+  },
+
+  clearUploadProgress() {
+    if (!this.uploadProgressList) return;
+    this.uploadProgressList.innerHTML = "";
+  },
+
   setFormDisabled(disabled) {
     if (!this.form) return;
     Array.from(this.form.elements).forEach((el) => (el.disabled = disabled));
@@ -350,10 +420,12 @@ export const ProductView = {
   resetForm() {
     this.form?.reset();
     this.form.dataset.editing = "";
+    if (this.mediaInput) this.mediaInput.value = "";
     this.renderImagePreviews([]);
     this.renderVideoPreview(null);
     this.renderVariations([]);
     this.renderAttributes([]);
+    this.clearUploadProgress();
   },
 
   populateForm(product) {
@@ -403,51 +475,58 @@ export const ProductView = {
     this.controller.setAttributeState(attributesEntries);
 
     const images = product.images || [];
-    this.renderImagePreviews(images.map((url) => ({ url })));
+    this.renderImagePreviews(images);
     this.controller.setMediaState({ images, video: product.video || null });
-    this.renderVideoPreview(product.video ? { url: product.video } : null);
+    this.renderVideoPreview(product.video || null);
 
     this.scrollToTop();
   },
 
-  renderImagePreviews(previews = []) {
-    this.imagePreviews.innerHTML = previews
-      .map(
-        (item, idx) => `
+  renderImagePreviews(items = []) {
+    if (!this.imagePreviews) return;
+    this.imagePreviews.innerHTML = items
+      .map((item, idx) => {
+        const url = resolvePreviewUrl(item);
+        return `
           <div class="media-thumb" data-index="${idx}" data-type="image">
-            <img src="${item.url || item}" alt="preview" />
+            <img src="${url}" alt="preview" />
             <button type="button" data-index="${idx}">×</button>
           </div>
-        `
-      )
+        `;
+      })
       .join("");
 
     this.imagePreviews.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", () => {
         const index = Number(btn.dataset.index);
         const list = [...(this.controller.currentImages || [])];
-        list.splice(index, 1);
+        const [removed] = list.splice(index, 1);
+        revokePreviewUrl(removed);
         this.controller.setMediaState({ images: list, video: this.controller.currentVideo });
-        this.renderImagePreviews(list.map((item) => (typeof item === "string" ? { url: item } : { url: URL.createObjectURL(item) })));
+        this.renderImagePreviews(list);
       });
     });
   },
 
   renderVideoPreview(item) {
+    if (!this.videoPreview) return;
     if (!item) {
       this.videoPreview.innerHTML = "";
       return;
     }
 
+    const url = resolvePreviewUrl(item);
+
     this.videoPreview.innerHTML = `
       <div class="media-thumb" data-type="video">
-        <video src="${item.url || item}" controls></video>
+        <video src="${url}" controls></video>
         <button type="button">×</button>
       </div>
     `;
 
     const btn = this.videoPreview.querySelector("button");
     btn?.addEventListener("click", () => {
+      revokePreviewUrl(this.controller.currentVideo);
       this.controller.setMediaState({ images: this.controller.currentImages, video: null });
       this.renderVideoPreview(null);
     });

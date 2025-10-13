@@ -164,14 +164,14 @@ async function checkout() {
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
-    console.log("✅ Midtrans response:", data);
+    const json = await res.json().catch(() => ({}));
+    console.log("[Cart] Response:", json);
 
     // Hide spinner
     document.getElementById("spinner").style.display = "none";
 
-    if (res.ok && data.token) {
-      window.snap.pay(data.token, {
+    if (res.ok && json?.data?.token) {
+      window.snap.pay(json.data.token, {
         onSuccess: function (result) {
           console.log("Payment success:", result);
           window.location.href = "payment-successful.html";
@@ -186,7 +186,8 @@ async function checkout() {
         },
       });
     } else {
-      alert("❌ Transaction failed: " + (data.error || "Unknown error"));
+      alert("❌ " + (json?.message || "Transaction failed"));
+      console.error("[Cart] Error:", json?.details || json);
     }
   } catch (err) {
     console.error("🔥 Checkout error:", err);

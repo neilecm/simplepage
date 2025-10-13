@@ -1,6 +1,21 @@
 // netlify/functions/shipping.js
 import { ShippingController } from "../../src/controllers/ShippingController.js";
 
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { ...corsHeaders(), "Content-Type": "application/json" },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { ...corsHeaders(), "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});
+
 export async function handler(event) {
   try {
     const isGET = event.httpMethod === "GET";
@@ -17,23 +32,34 @@ export async function handler(event) {
       };
     }
 
-    let result;
+    if (!["GET", "POST"].includes(event.httpMethod)) {
+      return errorResponse(405, "Method not allowed");
+    }
 
     switch (action) {
       case "provinces":
-        result = await ShippingController.getProvinces();
-        break;
+        {
+          const data = await ShippingController.getProvinces();
+          console.log("[shipping] Success:", { action: "provinces" });
+          return successResponse("Provinces fetched successfully", data);
+        }
       case "cities":
         // Accept province_id via GET or body
-        result = await ShippingController.getCities({
-          province_id: event.queryStringParameters?.province_id || body.province_id,
-        });
-        break;
+        {
+          const data = await ShippingController.getCities({
+            province_id: event.queryStringParameters?.province_id || body.province_id,
+          });
+          console.log("[shipping] Success:", { action: "cities" });
+          return successResponse("Cities fetched successfully", data);
+        }
       case "subdistricts":
-        result = await ShippingController.getSubdistricts({
-          city_id: event.queryStringParameters?.city_id || body.city_id,
-        });
-        break;
+        {
+          const data = await ShippingController.getSubdistricts({
+            city_id: event.queryStringParameters?.city_id || body.city_id,
+          });
+          console.log("[shipping] Success:", { action: "subdistricts" });
+          return successResponse("Subdistricts fetched successfully", data);
+        }
       case "cost":
       default: {
         // Expect: origin, destination, weight, courier, originType, destinationType
@@ -45,28 +71,23 @@ export async function handler(event) {
           originType:      body.originType ?? "city",
           destinationType: body.destinationType ?? "city",
         };
-        result = await ShippingController.getCost(payload);
-        break;
+        const data = await ShippingController.getCost(payload);
+        console.log("[shipping] Success:", { action: "cost" });
+        return successResponse("Shipping cost fetched successfully", data);
       }
     }
-
-    return {
-      statusCode: 200,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify(result),
-    };
   } catch (err) {
     console.error("[/shipping] error", err);
-    return {
-      statusCode: 500,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({
+    return errorResponse(
+      err?.status || 500,
+      err?.message || "RajaOngkir request failed",
+      err?.details || {
         rajaongkir: {
           results: [],
           error: String(err?.message || err),
         },
-      }),
-    };
+      }
+    );
   }
 }
 

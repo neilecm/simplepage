@@ -1,45 +1,32 @@
 // netlify/functions/admin-get-order-details.js
 import { createClient } from "@supabase/supabase-js";
 
+console.log("[INIT] Supabase using service role key in admin-get-order-details.js");
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
 
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: "",
-    };
+    return { statusCode: 200, headers: corsHeaders(), body: "" };
   }
 
   if (event.httpMethod !== "GET") {
-    return {
-      statusCode: 405,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
+    return errorResponse(405, "Method not allowed");
   }
 
   const adminId = event.headers["x-admin-id"];
   const orderId = event.queryStringParameters?.order_id;
 
   if (!adminId) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Unauthorized" }),
-    };
+    return errorResponse(401, "Unauthorized");
   }
 
   if (!orderId) {
-    return {
-      statusCode: 400,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "order_id is required" }),
-    };
+    return errorResponse(400, "order_id is required");
   }
 
   try {
@@ -49,12 +36,17 @@ export async function handler(event) {
       .eq("id", adminId)
       .maybeSingle();
 
-    if (adminError || !admin || admin.role !== "admin") {
-      return {
-        statusCode: 403,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "Forbidden" }),
-      };
+    if (adminError) {
+      console.error("[admin-get-order-details] Error:", adminError);
+      return errorResponse(
+        adminError.status || 400,
+        adminError.message,
+        adminError.details || null
+      );
+    }
+
+    if (!admin || admin.role !== "admin") {
+      return errorResponse(403, "Forbidden");
     }
 
     const { data, error } = await supabase
@@ -66,25 +58,17 @@ export async function handler(event) {
     if (error) throw error;
 
     if (!data) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "Order not found" }),
-      };
+      return errorResponse(404, "Order not found");
     }
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: JSON.stringify(data),
-    };
+    console.log("[admin-get-order-details] Success:", {
+      adminId,
+      orderId,
+    });
+    return successResponse("Order fetched successfully", data);
   } catch (error) {
-    console.error("[admin-get-order-details]", error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: error.message || "Internal Server Error" }),
-    };
+    console.error("[admin-get-order-details] Error:", error);
+    return errorResponse(error.status || 500, error.message, error.details || null);
   }
 }
 
@@ -96,3 +80,17 @@ function corsHeaders() {
   };
 }
 
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});

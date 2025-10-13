@@ -1,8 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+
+console.log("[INIT] Supabase using service role key in auth-register.js");
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
 
 // Debug Supabase init
@@ -11,15 +15,31 @@ console.log("🔧 Supabase init:", {
   key: process.env.SUPABASE_SERVICE_ROLE_KEY ? "loaded" : "MISSING"
 });
 
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});
+
 export async function handler(event) {
   try {
-    const { name, email, password, phone } = JSON.parse(event.body);
+    if (event.httpMethod && event.httpMethod !== "POST") {
+      return errorResponse(405, "Method not allowed");
+    }
+
+    const { name, email, password, phone } = JSON.parse(event.body || "{}");
 
     if (!name || !email || !password) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing required fields" }),
-      };
+      return errorResponse(400, "Missing required fields");
     }
 
     // Step 1: create Supabase Auth user
@@ -37,18 +57,16 @@ export async function handler(event) {
 
     if (signUpError) {
       console.error("❌ Supabase auth signUp failed:", signUpError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: signUpError.message }),
-      };
+      return errorResponse(
+        signUpError.status || 500,
+        signUpError.message,
+        signUpError.details || null
+      );
     }
 
     const authUser = signUpData?.user;
     if (!authUser) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Failed to create auth user." }),
-      };
+      return errorResponse(500, "Failed to create auth user.");
     }
 
     // Step 2: Count existing profiles to determine role
@@ -58,10 +76,11 @@ export async function handler(event) {
 
     if (countError) {
       console.error("❌ Failed counting users:", countError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: countError.message }),
-      };
+      return errorResponse(
+        countError.status || 500,
+        countError.message,
+        countError.details || null
+      );
     }
 
     const role = count === 0 ? "admin" : "user";
@@ -75,10 +94,11 @@ export async function handler(event) {
 
     if (profileLookupError) {
       console.error("❌ Failed to check user profile:", profileLookupError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: profileLookupError.message }),
-      };
+      return errorResponse(
+        profileLookupError.status || 500,
+        profileLookupError.message,
+        profileLookupError.details || null
+      );
     }
 
     if (!existingProfile) {
@@ -104,22 +124,20 @@ export async function handler(event) {
       console.log("ℹ️ User already exists:", authUser.id);
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: "User registered",
-        user: {
-          id: authUser.id,
-          email: authUser.email,
-          role,
-        },
-      }),
+    const result = {
+      id: authUser.id,
+      email: authUser.email,
+      role,
     };
+
+    console.log("[auth-register] Success:", {
+      userId: authUser.id,
+      role,
+    });
+
+    return successResponse("User registered successfully", result);
   } catch (err) {
     console.error("❌ Exception in register:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Internal Server Error" }),
-    };
+    return errorResponse(err?.status || 500, err?.message || "Internal Server Error", err?.details || null);
   }
 }

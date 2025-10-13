@@ -2,9 +2,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
+console.log("[INIT] Supabase using service role key in admin-products-bulk.js");
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
 
 export async function handler(event) {
@@ -13,20 +16,12 @@ export async function handler(event) {
   }
 
   if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
+    return errorResponse(405, "Method not allowed");
   }
 
   const adminId = event.headers["x-admin-id"];
   if (!adminId) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Unauthorized" }),
-    };
+    return errorResponse(401, "Unauthorized");
   }
 
   try {
@@ -36,23 +31,24 @@ export async function handler(event) {
       .eq("id", adminId)
       .maybeSingle();
 
-    if (adminError || !admin || admin.role !== "admin") {
-      return {
-        statusCode: 403,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "Forbidden" }),
-      };
+    if (adminError) {
+      console.error("[admin-products-bulk] Error:", adminError);
+      return errorResponse(
+        adminError.status || 400,
+        adminError.message,
+        adminError.details || null
+      );
+    }
+
+    if (!admin || admin.role !== "admin") {
+      return errorResponse(403, "Forbidden");
     }
 
     const body = JSON.parse(event.body || "{}");
     const products = Array.isArray(body.products) ? body.products : [];
 
     if (!products.length) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "No products supplied" }),
-      };
+      return errorResponse(400, "No products supplied");
     }
 
     const now = new Date().toISOString();
@@ -83,18 +79,15 @@ export async function handler(event) {
 
     if (error) throw error;
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: JSON.stringify({ success: true, count: data?.length ?? 0 }),
-    };
+    const result = { count: data?.length ?? 0 };
+    console.log("[admin-products-bulk] Success:", {
+      adminId,
+      inserted: result.count,
+    });
+    return successResponse("Products imported successfully", result);
   } catch (error) {
-    console.error("[admin-products-bulk]", error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: error.message || "Internal Server Error" }),
-    };
+    console.error("[admin-products-bulk] Error:", error);
+    return errorResponse(error.status || 500, error.message, error.details || null);
   }
 }
 
@@ -106,3 +99,17 @@ function corsHeaders() {
   };
 }
 
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});

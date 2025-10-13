@@ -12,7 +12,7 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
   console.warn("⚠️ Supabase configuration missing for ProductModel upload operations.");
 }
 
-async function request(url, options = {}) {
+async function request(url, options = {}, context = "ProductModel") {
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
@@ -21,14 +21,16 @@ async function request(url, options = {}) {
     ...options,
   });
 
-  const data = await res.json().catch(() => ({}));
+  const json = await res.json().catch(() => ({}));
+  console.log(`[${context}] Response:`, json);
+
   if (!res.ok) {
-    const error = new Error(data?.error || res.statusText);
+    const error = new Error(json?.message || res.statusText);
     error.status = res.status;
-    error.payload = data;
+    error.details = json?.details || json;
     throw error;
   }
-  return data;
+  return json;
 }
 
 function ensureClient() {
@@ -66,14 +68,14 @@ export const ProductModel = {
     return request(`/.netlify/functions/admin-products-get?${query}`, {
       method: "GET",
       headers: { "x-admin-id": adminId },
-    });
+    }, "ProductModel.getAllProducts");
   },
 
   async getProductById({ adminId, id }) {
     return request(`/.netlify/functions/admin-products-get?id=${encodeURIComponent(id)}`, {
       method: "GET",
       headers: { "x-admin-id": adminId },
-    });
+    }, "ProductModel.getProductById");
   },
 
   async createProduct({ adminId, payload }) {
@@ -81,7 +83,7 @@ export const ProductModel = {
       method: "POST",
       headers: { "x-admin-id": adminId },
       body: JSON.stringify(payload),
-    });
+    }, "ProductModel.createProduct");
   },
 
   async updateProduct({ adminId, id, payload }) {
@@ -89,7 +91,7 @@ export const ProductModel = {
       method: "POST",
       headers: { "x-admin-id": adminId },
       body: JSON.stringify({ id, ...payload }),
-    });
+    }, "ProductModel.updateProduct");
   },
 
   async deleteProduct({ adminId, id }) {
@@ -97,7 +99,7 @@ export const ProductModel = {
       method: "POST",
       headers: { "x-admin-id": adminId },
       body: JSON.stringify({ id }),
-    });
+    }, "ProductModel.deleteProduct");
   },
 
   async bulkImport({ adminId, products }) {
@@ -105,7 +107,7 @@ export const ProductModel = {
       method: "POST",
       headers: { "x-admin-id": adminId },
       body: JSON.stringify({ products }),
-    });
+    }, "ProductModel.bulkImport");
   },
 
   async uploadImages(files, adminId) {
@@ -124,4 +126,3 @@ export const ProductModel = {
     return uploadSingleFile(file, `${adminId}/videos`);
   },
 };
-

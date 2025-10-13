@@ -17,10 +17,16 @@ export const PaymentController = {
       PaymentView.renderOrderTotal(total_cost);
 
       // ✅ Create Midtrans transaction
-      const { token } = await PaymentModel.createTransaction(total_cost);
+      const response = await PaymentModel.createTransaction(total_cost);
+      console.log("[PaymentController] Response:", response);
+      const token = response?.data?.token;
+
+      if (!token) {
+        throw new Error(response?.message || "Failed to initialize transaction.");
+      }
 
       // Show processing status
-      PaymentView.showStatus("Processing payment...", "info");
+      PaymentView.showStatus(response?.message || "Processing payment...", "info");
 
       // ✅ Launch Snap payment popup
       // prevent double initialization

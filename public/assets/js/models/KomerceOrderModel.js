@@ -15,12 +15,16 @@ async function postJSON(url, payload) {
     body: JSON.stringify(payload || {}),
   });
 
-  const data = await response.json().catch(() => ({}));
+  const json = await response.json().catch(() => ({}));
+  console.log("[KomerceOrderModel] Response:", json);
   if (!response.ok) {
-    const message = data?.error || data?.message || response.statusText;
-    throw new Error(message);
+    const message = json?.message || response.statusText || "Request failed";
+    const error = new Error(message);
+    error.status = response.status;
+    error.details = json?.details || json;
+    throw error;
   }
-  return data;
+  return json;
 }
 
 /**

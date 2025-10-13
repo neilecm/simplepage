@@ -2,18 +2,22 @@
 /**
  * Small helper for performing JSON-based fetch requests and surfacing errors.
  */
-async function request(path, options = {}) {
+async function request(path, options = {}, context = "VendorModel") {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
 
-  const data = await res.json().catch(() => ({}));
+  const json = await res.json().catch(() => ({}));
+  console.log(`[${context}] Response:`, json);
   if (!res.ok) {
-    const message = data?.error || res.statusText || "Request failed";
-    throw new Error(message);
+    const message = json?.message || res.statusText || "Request failed";
+    const error = new Error(message);
+    error.status = res.status;
+    error.details = json?.details || json;
+    throw error;
   }
-  return data;
+  return json;
 }
 
 export const VendorModel = {
@@ -24,7 +28,7 @@ export const VendorModel = {
     return request("/.netlify/functions/vendor-register", {
       method: "POST",
       body: JSON.stringify(vendor),
-    });
+    }, "VendorModel.register");
   },
 
   /**
@@ -33,7 +37,7 @@ export const VendorModel = {
   async listProducts(vendorId) {
     return request(`/.netlify/functions/vendor-products?vendor_id=${encodeURIComponent(vendorId)}`, {
       method: "GET",
-    });
+    }, "VendorModel.listProducts");
   },
 
   /**
@@ -43,7 +47,7 @@ export const VendorModel = {
     return request("/.netlify/functions/vendor-products", {
       method: "POST",
       body: JSON.stringify(product),
-    });
+    }, "VendorModel.addProduct");
   },
 
   /**
@@ -53,7 +57,7 @@ export const VendorModel = {
     return request("/.netlify/functions/vendor-register", {
       method: "PUT",
       body: JSON.stringify({ id, ...updates }),
-    });
+    }, "VendorModel.updateVendor");
   },
 
   /**
@@ -62,6 +66,6 @@ export const VendorModel = {
   async deleteProduct(id) {
     return request(`/.netlify/functions/vendor-products?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
-    });
+    }, "VendorModel.deleteProduct");
   },
 };

@@ -7,25 +7,21 @@ export async function handler(event) {
     if (event.httpMethod === "OPTIONS")
       return { statusCode: 200, headers: cors(), body: "" };
 
+    if (event.httpMethod !== "POST") {
+      return errorResponse(405, "Method not allowed");
+    }
+
     // Parse incoming data
-    const body = JSON.parse(event.body);
+    const body = JSON.parse(event.body || "{}");
 
     // Delegate to MVC controller
     const result = await OrderController.createOrder(body);
 
-    // Respond to frontend
-    return {
-      statusCode: 200,
-      headers: { ...cors(), "Content-Type": "application/json" },
-      body: JSON.stringify(result),
-    };
+    console.log("[create-order] Success:", { orderId: result?.order_id });
+    return successResponse("Order created successfully", result);
   } catch (err) {
-    console.error("[create-order]", err);
-    return {
-      statusCode: 500,
-      headers: cors(),
-      body: JSON.stringify({ error: err.message }),
-    };
+    console.error("[create-order] Error:", err);
+    return errorResponse(err?.status || 500, err?.message, err?.details || null);
   }
 }
 
@@ -37,3 +33,18 @@ function cors() {
     "Access-Control-Allow-Headers": "Content-Type",
   };
 }
+
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { ...cors(), "Content-Type": "application/json" },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { ...cors(), "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});

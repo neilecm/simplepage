@@ -608,11 +608,16 @@
                 <h3>Media</h3>
                 <small style="color:#6b7280;">Up to 8 images & 1 video</small>
               </div>
-              <label for="product-images">Images</label>
-              <input type="file" id="product-images" name="product-images" accept="image/*" multiple />
+              <label for="product-media">Media</label>
+              <input
+                type="file"
+                id="product-media"
+                name="product-media"
+                accept="image/*,video/*"
+                multiple
+              />
+              <div id="product-upload-progress" class="upload-progress-list"></div>
               <div id="image-previews" class="media-previews"></div>
-              <label for="product-video">Video (optional)</label>
-              <input type="file" id="product-video" name="product-video" accept="video/*" />
               <div id="video-preview" class="media-previews"></div>
             </section>
 

@@ -1,22 +1,21 @@
 // netlify/functions/vendor-products.js
 import { createClient } from "@supabase/supabase-js";
 
+console.log("[INIT] Supabase using service role key in vendor-products.js");
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+);
+
 /**
  * CRUD handler for vendor products (list, add, delete).
  */
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: "",
-    };
+    return { statusCode: 200, headers: corsHeaders(), body: "" };
   }
-
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
 
   try {
     switch (event.httpMethod) {
@@ -26,11 +25,7 @@ export async function handler(event) {
           JSON.parse(event.body || "{}").vendor_id;
 
         if (!vendor_id) {
-          return {
-            statusCode: 400,
-            headers: corsHeaders(),
-            body: JSON.stringify({ error: "vendor_id is required" }),
-          };
+          return errorResponse(400, "vendor_id is required");
         }
 
         const { data, error } = await supabase
@@ -41,23 +36,20 @@ export async function handler(event) {
 
         if (error) throw error;
 
-        return {
-          statusCode: 200,
-          headers: corsHeaders(),
-          body: JSON.stringify(data),
-        };
+        console.log("[vendor-products] GET Success:", {
+          vendor_id,
+          count: data?.length || 0,
+        });
+        return successResponse("Products fetched successfully", data || []);
       }
 
       case "POST": {
         const body = JSON.parse(event.body || "{}");
         if (!body.vendor_id || !body.name || typeof body.price === "undefined") {
-          return {
-            statusCode: 400,
-            headers: corsHeaders(),
-            body: JSON.stringify({
-              error: "vendor_id, name, and price are required fields.",
-            }),
-          };
+          return errorResponse(
+            400,
+            "vendor_id, name, and price are required fields."
+          );
         }
 
         const { data, error } = await supabase
@@ -68,11 +60,11 @@ export async function handler(event) {
 
         if (error) throw error;
 
-        return {
-          statusCode: 201,
-          headers: corsHeaders(),
-          body: JSON.stringify(data),
-        };
+        console.log("[vendor-products] POST Success:", {
+          vendor_id: body.vendor_id,
+          productId: data?.id,
+        });
+        return successResponse("Vendor product created successfully", data);
       }
 
       case "DELETE": {
@@ -81,37 +73,22 @@ export async function handler(event) {
           JSON.parse(event.body || "{}").id;
 
         if (!id) {
-          return {
-            statusCode: 400,
-            headers: corsHeaders(),
-            body: JSON.stringify({ error: "Product id is required." }),
-          };
+          return errorResponse(400, "Product id is required.");
         }
 
         const { error } = await supabase.from("products").delete().eq("id", id);
         if (error) throw error;
 
-        return {
-          statusCode: 200,
-          headers: corsHeaders(),
-          body: JSON.stringify({ message: "Deleted" }),
-        };
+        console.log("[vendor-products] DELETE Success:", { id });
+        return successResponse("Vendor product deleted successfully", { id });
       }
 
       default:
-        return {
-          statusCode: 405,
-          headers: corsHeaders(),
-          body: JSON.stringify({ error: "Method not allowed" }),
-        };
+        return errorResponse(405, "Method not allowed");
     }
   } catch (err) {
-    console.error("[vendor-products] error:", err);
-    return {
-      statusCode: 500,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: err.message || "Internal server error" }),
-    };
+    console.error("[vendor-products] Error:", err);
+    return errorResponse(err?.status || 500, err?.message || "Internal server error", err?.details || null);
   }
 }
 
@@ -122,3 +99,18 @@ function corsHeaders() {
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   };
 }
+
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});

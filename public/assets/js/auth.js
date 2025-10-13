@@ -19,32 +19,6 @@ function logout() {
   window.location.href = "login.html";
 }
 
-// Handle Register
-async function registerUser(e) {
-  e.preventDefault();
-
-  const name = document.getElementById("name").value;
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const phone = document.getElementById("phone").value;
-
-  const res = await fetch("/.netlify/functions/auth-register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, password, phone })
-  });
-
-  const data = await res.json();
-  if (res.ok) {
-    alert("Registration successful! Please login.");
-    window.location.href = "login.html";
-  } else {
-    alert(data.error || "Registration failed");
-  }
-}
-
-// Handle Login
-// js/auth.js
 async function registerUser(event) {
   event.preventDefault();
   const name = document.getElementById("name").value;
@@ -60,18 +34,19 @@ async function registerUser(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, email, password, phone }),
     });
-    const data = await res.json();
-    console.log("✅ Register response:", data);
+    const json = await res.json().catch(() => ({}));
+    console.log("[Auth] Response:", json);
 
-    if (res.ok) {
-      alert("Registration successful! Please log in.");
+    if (res.ok && json?.data) {
+      alert(json.message || "Registration successful! Please log in.");
       window.location.href = "login.html";
     } else {
-      alert("Registration failed: " + data.error);
+      alert("❌ " + (json?.message || "Registration failed"));
+      console.error("[Auth] API error:", json?.details || json);
     }
   } catch (err) {
-    console.error("❌ Register error:", err);
-    alert("Something went wrong during register.");
+    console.error("[Auth] Error:", err);
+    alert("❌ " + (err.message || "Unexpected error during register."));
   }
 }
 
@@ -88,28 +63,30 @@ async function loginUser(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
-    console.log("✅ Login response:", data);
+    const json = await res.json().catch(() => ({}));
+    console.log("[Auth] Response:", json);
 
-    if (res.ok) {
-      localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("currentUser", JSON.stringify(data.user));
-      if (data.token) {
-        localStorage.setItem("auth_token", data.token);
+    if (res.ok && json?.data?.user) {
+      const { user, token } = json.data;
+      localStorage.setItem("user", JSON.stringify(user));
+      saveUser(user);
+      if (token) {
+        localStorage.setItem("auth_token", token);
       }
-      if (data.user?.role) {
-        localStorage.setItem("user_role", data.user.role);
+      if (user?.role) {
+        localStorage.setItem("user_role", user.role);
       }
-      if (data.user?.email) {
-        localStorage.setItem("user_email", data.user.email);
+      if (user?.email) {
+        localStorage.setItem("user_email", user.email);
       }
-      alert("Welcome " + (data.user.name || data.user.email));
+      alert(json.message || `Welcome ${user.name || user.email}`);
       window.location.href = "cart.html";
     } else {
-      alert("Login failed: " + data.error);
+      alert("❌ " + (json?.message || "Login failed"));
+      console.error("[Auth] API error:", json?.details || json);
     }
   } catch (err) {
-    console.error("❌ Login error:", err);
-    alert("Something went wrong during login.");
+    console.error("[Auth] Error:", err);
+    alert("❌ " + (err.message || "Unexpected error during login."));
   }
 }

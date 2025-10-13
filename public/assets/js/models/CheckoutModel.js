@@ -30,5 +30,15 @@ async function apiFetch(action, method, body = {}) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return res.json();
+  const json = await res.json().catch(() => ({}));
+  console.log("[CheckoutModel] Response:", json);
+
+  if (res.ok) {
+    return json;
+  }
+
+  const error = new Error(json?.message || "Request failed");
+  error.status = res.status;
+  error.details = json?.details || json;
+  throw error;
 }

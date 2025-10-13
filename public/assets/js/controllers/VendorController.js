@@ -208,16 +208,16 @@ export const VendorController = {
         "info"
       );
 
-      let vendor;
+      let vendorResponse;
       if (this.state.isEditing && this.state.vendor?.id) {
-        vendor = await VendorModel.updateVendor(this.state.vendor.id, {
+        vendorResponse = await VendorModel.updateVendor(this.state.vendor.id, {
           user_id: this.state.userId,
           store_name,
           description,
           logo_url,
         });
       } else {
-        vendor = await VendorModel.register({
+        vendorResponse = await VendorModel.register({
           user_id: this.state.userId,
           store_name,
           description,
@@ -225,14 +225,20 @@ export const VendorController = {
         });
       }
 
+     console.log("[VendorController] Response:", vendorResponse);
+     const vendor = vendorResponse?.data || vendorResponse;
+      if (!vendor) {
+        throw new Error(vendorResponse?.message || "Vendor data missing");
+      }
       this.applyVendorState(vendor);
       await this.loadProducts();
 
       this.state.isEditing = false;
       this.setStatus(
-        wasEditing
-          ? "✅ Store updated successfully."
-          : "✅ Store registered successfully.",
+        vendorResponse?.message ||
+          (wasEditing
+            ? "✅ Store updated successfully."
+            : "✅ Store registered successfully."),
         "success"
       );
       this.toggleRegisterFormVisibility(false);
@@ -313,10 +319,14 @@ export const VendorController = {
       }
 
       this.setStatus("Saving product…", "info");
-      await VendorModel.addProduct(product);
+      const response = await VendorModel.addProduct(product);
+      console.log("[VendorController] Response:", response);
+      if (!response?.data) {
+        throw new Error(response?.message || "Failed to add product.");
+      }
       form.reset();
       await this.loadProducts();
-      this.setStatus("✅ Product added successfully.", "success");
+      this.setStatus(response.message || "✅ Product added successfully.", "success");
     } catch (error) {
       console.error("[VendorController.addProduct]", error);
       this.setStatus(error.message, "error");
@@ -333,9 +343,13 @@ export const VendorController = {
 
     try {
       this.setStatus("Deleting product…", "info");
-      await VendorModel.deleteProduct(id);
+      const response = await VendorModel.deleteProduct(id);
+      console.log("[VendorController] Response:", response);
+      if (!response?.data) {
+        throw new Error(response?.message || "Failed to delete product.");
+      }
       await this.loadProducts();
-      this.setStatus("✅ Product deleted.", "success");
+      this.setStatus(response?.message || "✅ Product deleted.", "success");
     } catch (error) {
       console.error("[VendorController.deleteProduct]", error);
       this.setStatus(error.message, "error");
@@ -352,7 +366,13 @@ export const VendorController = {
     }
 
     try {
-      const products = await VendorModel.listProducts(this.state.vendor.id);
+      const response = await VendorModel.listProducts(this.state.vendor.id);
+      console.log("[VendorController] Response:", response);
+      const products = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
       this.renderProducts(products);
     } catch (error) {
       console.error("[VendorController.loadProducts]", error);

@@ -1,6 +1,6 @@
 // public/assets/js/models/AdminModel.js
 
-async function request(url, options = {}) {
+async function request(url, options = {}, context = "AdminModel") {
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
@@ -9,14 +9,15 @@ async function request(url, options = {}) {
     ...options,
   });
 
-  const data = await res.json().catch(() => ({}));
+  const json = await res.json().catch(() => ({}));
+  console.log(`[${context}] Response:`, json);
   if (!res.ok) {
-    const error = new Error(data?.error || res.statusText);
+    const error = new Error(json?.message || res.statusText);
     error.status = res.status;
-    error.payload = data;
+    error.details = json?.details || json;
     throw error;
   }
-  return data;
+  return json;
 }
 
 export const AdminModel = {
@@ -36,7 +37,8 @@ export const AdminModel = {
         headers: {
           "x-admin-id": adminId,
         },
-      }
+      },
+      "AdminModel.fetchOrders"
     );
   },
 
@@ -54,8 +56,8 @@ export const AdminModel = {
         order_id: orderId,
         status,
       }),
-    });
-    return result.order || result;
+    }, "AdminModel.updateOrderStatus");
+    return result;
   },
 
   async fetchOrderDetails({ adminId, orderId }) {
@@ -68,7 +70,8 @@ export const AdminModel = {
         headers: {
           "x-admin-id": adminId,
         },
-      }
+      },
+      "AdminModel.fetchOrderDetails"
     );
   },
 };

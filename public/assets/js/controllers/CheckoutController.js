@@ -10,10 +10,11 @@ export const CheckoutController = {
     document.dispatchEvent(new Event("shippingUpdated"));
 
     try {
-      const provinces = await CheckoutModel.fetchProvinces();
-      CheckoutView.populateSelect("province", provinces.data || provinces.rajaongkir?.results || []);
-    } catch (err) {
-      console.error("Failed to load provinces:", err);
+      const response = await CheckoutModel.fetchProvinces();
+      console.log("[CheckoutController] Response:", response);
+      CheckoutView.populateSelect("province", response?.data || []);
+    } catch (error) {
+      console.error("Failed to load provinces:", error);
       alert("Cannot load province list. Please refresh.");
     }
 
@@ -28,31 +29,59 @@ export const CheckoutController = {
   async handleProvinceChange(e) {
     const provinceId = e.target.value;
     if (!provinceId) return;
-    const cities = await CheckoutModel.fetchCities(provinceId);
-    CheckoutView.populateSelect("city", cities.data || cities.rajaongkir?.results || []);
+    try {
+      const response = await CheckoutModel.fetchCities(provinceId);
+      console.log("[CheckoutController] Response:", response);
+      CheckoutView.populateSelect("city", response?.data || []);
+    } catch (error) {
+      console.error("[CheckoutController] Error:", error);
+      alert(error.message || "Failed to load cities.");
+    }
   },
 
   async handleCityChange(e) {
     const cityId = e.target.value;
     if (!cityId) return;
-    const districts = await CheckoutModel.fetchDistricts(cityId);
-    CheckoutView.populateSelect("district", districts.data || districts.rajaongkir?.results || []);
+    try {
+      const response = await CheckoutModel.fetchDistricts(cityId);
+      console.log("[CheckoutController] Response:", response);
+      CheckoutView.populateSelect("district", response?.data || []);
+    } catch (error) {
+      console.error("[CheckoutController] Error:", error);
+      alert(error.message || "Failed to load districts.");
+    }
   },
 
   async handleDistrictChange(e) {
     const districtId = e.target.value;
     if (!districtId) return;
-    const subdistricts = await CheckoutModel.fetchSubdistricts(districtId);
-    CheckoutView.populateSelect("subdistrict", subdistricts.data || subdistricts.rajaongkir?.results || []);
+    try {
+      const response = await CheckoutModel.fetchSubdistricts(districtId);
+      console.log("[CheckoutController] Response:", response);
+      CheckoutView.populateSelect("subdistrict", response?.data || []);
+    } catch (error) {
+      console.error("[CheckoutController] Error:", error);
+      alert(error.message || "Failed to load subdistricts.");
+    }
   },
 
   async handleCourierChange() {
     const courier = document.getElementById("courier")?.value;
     const districtId = document.getElementById("district")?.value;
     if (!courier || !districtId) return;
-    const cost = await CheckoutModel.fetchCost(districtId, courier);
-    const results = cost.data?.results || cost.rajaongkir?.results || [];
-    CheckoutView.showShippingOptions(results);
+    try {
+      const response = await CheckoutModel.fetchCost(districtId, courier);
+      console.log("[CheckoutController] Response:", response);
+      const results = Array.isArray(response?.data?.results)
+        ? response.data.results
+        : Array.isArray(response?.data)
+        ? response.data
+        : [];
+      CheckoutView.showShippingOptions(results);
+    } catch (error) {
+      console.error("[CheckoutController] Error:", error);
+      alert(error.message || "Failed to fetch shipping cost.");
+    }
   },
 
   async saveAndContinue() {
@@ -92,16 +121,21 @@ export const CheckoutController = {
       return;
     }
 
-    const res = await CheckoutModel.saveAddress(fields);
-    if (res.error) {
-      console.error("Save address error:", res.error);
-      alert("❌ Failed to save address.");
-      return;
+    try {
+      const response = await CheckoutModel.saveAddress(fields);
+      console.log("[CheckoutController] Response:", response);
+      if (response && response.data) {
+        localStorage.setItem("shipping_cost", fields.shipping_cost);
+        localStorage.setItem("address_data", JSON.stringify(fields));
+        alert(response.message || "✅ Address saved successfully!");
+        window.location.href = "payment.html";
+      } else {
+        alert("❌ " + (response?.message || "Failed to save address."));
+        console.error("[CheckoutController] API error:", response?.details || response);
+      }
+    } catch (error) {
+      console.error("[CheckoutController] Error:", error);
+      alert("❌ " + (error.message || "Failed to save address."));
     }
-
-    localStorage.setItem("shipping_cost", fields.shipping_cost);
-    localStorage.setItem("address_data", JSON.stringify(fields));
-    alert("✅ Address saved successfully!");
-    window.location.href = "payment.html";
   },
 };

@@ -105,14 +105,14 @@ export const AdminController = {
       const response = await AdminModel.fetchOrders({
         adminId: this.user.id,
       });
-
-      if (response && Array.isArray(response.data)) {
-        this.orders = response.data;
-      } else if (Array.isArray(response)) {
-        this.orders = response;
-      } else {
-        this.orders = [];
-      }
+      console.log("[AdminController] Response:", response);
+      const payload = response?.data;
+      const records = Array.isArray(payload?.records)
+        ? payload.records
+        : Array.isArray(payload)
+        ? payload
+        : [];
+      this.orders = records;
       this.applyFilters();
     } catch (error) {
       console.warn("[AdminController.loadOrders]", error);
@@ -178,11 +178,16 @@ export const AdminController = {
   async updateOrderStatus(orderId, status, previousStatus, selectEl) {
     if (!orderId) return;
     try {
-      const updated = await AdminModel.updateOrderStatus({
+      const updateResponse = await AdminModel.updateOrderStatus({
         adminId: this.user.id,
         orderId,
         status,
       });
+      console.log("[AdminController] Response:", updateResponse);
+      const updated = updateResponse?.data || updateResponse;
+      if (!updated) {
+        throw new Error(updateResponse?.message || "Failed to update order status.");
+      }
       const index = this.orders.findIndex((o) => o.order_id === orderId);
       if (index >= 0) {
         this.orders[index] = { ...this.orders[index], ...updated };
@@ -190,7 +195,10 @@ export const AdminController = {
         this.orders.push(updated);
       }
       this.applyFilters();
-      AdminView.showToast(`✔ Order ${orderId} marked as ${(updated.status || status).toUpperCase()}.`);
+      AdminView.showToast(
+        updateResponse?.message ||
+          `✔ Order ${orderId} marked as ${(updated.status || status).toUpperCase()}.`
+      );
     } catch (error) {
       console.warn("[AdminController.updateOrderStatus]", error);
       if (selectEl) {
@@ -210,7 +218,8 @@ export const AdminController = {
         adminId: this.user.id,
         orderId,
       });
-      AdminView.renderOrderDetails(detail);
+      console.log("[AdminController] Response:", detail);
+      AdminView.renderOrderDetails(detail?.data || detail);
     } catch (error) {
       console.warn("[AdminController.showOrderDetails]", error);
       AdminView.closeModal();

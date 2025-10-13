@@ -126,6 +126,7 @@ async function requestShippingCost(payload) {
   });
 
   const json = await response.json().catch(() => ({}));
+  console.log("[ShippingModel] Response:", json);
 
   if (!response.ok) {
     const message =
@@ -133,7 +134,10 @@ async function requestShippingCost(payload) {
       json?.error ||
       json?.rajaongkir?.error ||
       "Failed to retrieve shipping cost.";
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    error.details = json?.details || json;
+    throw error;
   }
 
   return json;
@@ -155,7 +159,7 @@ export const ShippingModel = {
     };
 
     const json = await requestShippingCost(payload);
-    const data = json?.data ?? json?.rajaongkir?.results ?? [];
+    const data = json?.data ?? [];
 
     const services = normalizeServices(data, courier);
 

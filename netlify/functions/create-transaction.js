@@ -3,14 +3,15 @@ import midtransClient from "midtrans-client";
 // Netlify automatically runs handler() as an AWS Lambda
 export const handler = async (event) => {
   try {
+    if (event.httpMethod && event.httpMethod !== "POST") {
+      return errorResponse(405, "Method not allowed");
+    }
+
     const body = JSON.parse(event.body || "{}");
     const { total_cost } = body;
 
     if (!total_cost) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing total_cost in request body" })
-      };
+      return errorResponse(400, "Missing total_cost in request body");
     }
 
     // Initialize Snap client with your keys
@@ -44,18 +45,30 @@ export const handler = async (event) => {
     // Create transaction
     const transaction = await snap.createTransaction(parameter);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        token: transaction.token,
-        redirect_url: transaction.redirect_url
-      })
-    };
+    console.log("[create-transaction] Success:", {
+      orderId: parameter.transaction_details.order_id,
+    });
+    return successResponse("Transaction created successfully", {
+      token: transaction.token,
+      redirect_url: transaction.redirect_url
+    });
   } catch (error) {
     console.error("Midtrans create-transaction error:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
-    };
+    return errorResponse(error?.status || 500, error?.message, error?.details || null);
   }
 };
+
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, data })
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details
+  })
+});

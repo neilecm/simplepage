@@ -7,12 +7,18 @@ export const PaymentModel = {
         body: JSON.stringify({ total_cost })
       });
 
-      if (!res.ok) {
-        throw new Error(`Failed to create transaction (${res.status})`);
+      const json = await res.json().catch(() => ({}));
+      console.log("[PaymentModel] Response:", json);
+
+      if (res.ok && json?.data) {
+        return json;
       }
 
-      const data = await res.json();
-      return data;
+      const message = json?.message || `Failed to create transaction (${res.status})`;
+      const error = new Error(message);
+      error.status = res.status;
+      error.details = json?.details || json;
+      throw error;
     } catch (error) {
       console.error("PaymentModel error:", error);
       throw error;

@@ -1,13 +1,35 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
+console.log("[INIT] Supabase using service role key in auth-save-address.js");
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
+
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});
 
 export async function handler(event) {
   try {
+    if (event.httpMethod && event.httpMethod !== "POST") {
+      return errorResponse(405, "Method not allowed");
+    }
+
     const body = JSON.parse(event.body || "{}");
     let {
       user_id,
@@ -31,10 +53,7 @@ export async function handler(event) {
 
     // --- basic validation
     if (!full_name || !street || !province || !city || !district || !postal_code || !phone) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing required address fields" }),
-      };
+      return errorResponse(400, "Missing required address fields");
     }
 
     // --- build payload
@@ -56,24 +75,21 @@ export async function handler(event) {
 
     if (error) {
       console.error("[Supabase Insert Error]", error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: "Supabase insert failed",
-          details: error.message,
-        }),
-      };
+      return errorResponse(
+        error.status || 500,
+        "Supabase insert failed",
+        error.message || null
+      );
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: "Address saved successfully", data }),
-    };
+    console.log("[auth-save-address] Success:", {
+      user_id,
+      guest_id,
+      addressId: data?.[0]?.id || null,
+    });
+    return successResponse("Address saved successfully", data);
   } catch (err) {
     console.error("[auth-save-address] Fatal error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Internal Server Error", details: err.message }),
-    };
+    return errorResponse(err?.status || 500, err?.message || "Internal Server Error", err?.details || null);
   }
 }

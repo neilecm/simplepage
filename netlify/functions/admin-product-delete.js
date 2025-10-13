@@ -1,9 +1,12 @@
 // netlify/functions/admin-product-delete.js
 import { createClient } from "@supabase/supabase-js";
 
+console.log("[INIT] Supabase using service role key in admin-product-delete.js");
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
 
 export async function handler(event) {
@@ -12,20 +15,12 @@ export async function handler(event) {
   }
 
   if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
+    return errorResponse(405, "Method not allowed");
   }
 
   const adminId = event.headers["x-admin-id"];
   if (!adminId) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Unauthorized" }),
-    };
+    return errorResponse(401, "Unauthorized");
   }
 
   try {
@@ -35,22 +30,23 @@ export async function handler(event) {
       .eq("id", adminId)
       .maybeSingle();
 
-    if (adminError || !admin || admin.role !== "admin") {
-      return {
-        statusCode: 403,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "Forbidden" }),
-      };
+    if (adminError) {
+      console.error("[admin-product-delete] Error:", adminError);
+      return errorResponse(
+        adminError.status || 400,
+        adminError.message,
+        adminError.details || null
+      );
+    }
+
+    if (!admin || admin.role !== "admin") {
+      return errorResponse(403, "Forbidden");
     }
 
     const { id } = JSON.parse(event.body || "{}");
 
     if (!id) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "Product id is required" }),
-      };
+      return errorResponse(400, "Product id is required");
     }
 
     const { error } = await supabase
@@ -60,18 +56,11 @@ export async function handler(event) {
 
     if (error) throw error;
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: JSON.stringify({ success: true }),
-    };
+    console.log("[admin-product-delete] Success:", { adminId, id });
+    return successResponse("Product deleted successfully", { id });
   } catch (error) {
-    console.error("[admin-product-delete]", error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: error.message || "Internal Server Error" }),
-    };
+    console.error("[admin-product-delete] Error:", error);
+    return errorResponse(error.status || 500, error.message, error.details || null);
   }
 }
 
@@ -83,3 +72,17 @@ function corsHeaders() {
   };
 }
 
+const successResponse = (message, data) => ({
+  statusCode: 200,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({ message, data }),
+});
+
+const errorResponse = (status, message, details = null) => ({
+  statusCode: status || 500,
+  headers: { "Content-Type": "application/json", ...corsHeaders() },
+  body: JSON.stringify({
+    message: message || "Unexpected server error",
+    details,
+  }),
+});

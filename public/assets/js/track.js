@@ -10,15 +10,18 @@ async function trackDelivery(waybill, courier) {
   try {
     const res = await fetch("/.netlify/functions/shipping?type=delivery", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ waybill, courier })
     });
 
-    const result = await res.json();
-    console.log("📦 Tracking result:", result);
+    const json = await res.json().catch(() => ({}));
+    console.log("[Track] Response:", json);
 
     const trackDiv = document.getElementById("tracking-result");
-    if (result.rajaongkir && result.rajaongkir.result) {
-      const { summary, manifest, delivery_status } = result.rajaongkir.result;
+    const payload = json?.data?.rajaongkir || json?.rajaongkir;
+
+    if (res.ok && payload?.result) {
+      const { summary, manifest, delivery_status } = payload.result;
 
       let output = `
 📌 Courier: ${summary.courier_name}
@@ -34,7 +37,9 @@ async function trackDelivery(waybill, courier) {
 
       trackDiv.textContent = output;
     } else {
-      trackDiv.textContent = "❌ No tracking info found. Please check the waybill.";
+      trackDiv.textContent =
+        "❌ " + (json?.message || "No tracking info found. Please check the waybill.");
+      console.error("[Track] API error:", json?.details || json);
     }
   } catch (err) {
     console.error("❌ Tracking error:", err);
