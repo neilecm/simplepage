@@ -1,90 +1,33 @@
 // netlify/functions/admin-update-order.js
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 export async function handler(event) {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: corsHeaders(), body: "" };
-  }
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
-  }
-
-  const adminId = event.headers["x-admin-id"];
-  if (!adminId) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Unauthorized" }),
-    };
-  }
+  if (event.httpMethod !== "POST") return { statusCode: 405, body: "method-not-allowed" };
 
   try {
-    const { order_id, status } = JSON.parse(event.body || "{}");
-
-    if (!order_id || !status) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "order_id and status are required" }),
-      };
+    const { id, patch } = JSON.parse(event.body || "{}");
+    if (!id || !patch || typeof patch !== "object") {
+      return { statusCode: 400, body: "missing id or patch" };
     }
 
-    const { data: admin, error: adminError } = await supabase
-      .from("users")
-      .select("id, role")
-      .eq("id", adminId)
-      .single();
-
-    if (adminError || !admin || admin.role !== "admin") {
-      return {
-        statusCode: 403,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "Forbidden" }),
-      };
-    }
-
-    const updated_at = new Date().toISOString();
-
-    const { data, error } = await supabase
-      .from("orders")
-      .update({ status, updated_at })
-      .eq("order_id", order_id)
-      .select(
-        "order_id, user_id, customer_name, customer_email, total, shipping_cost, payment_status, shipping_provider, status, created_at, updated_at"
-      )
-      .single();
-
-    if (error) throw error;
-
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: JSON.stringify({ success: true, order: data }),
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+    const headers = {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates"
     };
-  } catch (error) {
-    console.error("[admin-update-order]", error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: error.message || "Internal Server Error" }),
-    };
+
+    // Upsert by primary key (order_id)
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify([{ order_id: id, ...patch }]),
+    });
+    const txt = await resp.text();
+    if (!resp.ok) return { statusCode: resp.status, body: txt || "update-error" };
+
+    return { statusCode: 200, body: txt || "{}" };
+  } catch (e) {
+    console.error("admin-update-order error", e);
+    return { statusCode: 500, body: "server-error" };
   }
-}
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-admin-id",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  };
 }

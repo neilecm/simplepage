@@ -1,104 +1,75 @@
 // netlify/functions/admin-get-orders.js
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 export async function handler(event) {
-  if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: corsHeaders(),
-      body: "",
-    };
-  }
-
-  if (event.httpMethod !== "GET") {
-    return {
-      statusCode: 405,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
-  }
-
-  const adminId = event.headers["x-admin-id"];
-  if (!adminId) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Unauthorized" }),
-    };
-  }
-
   try {
-    const { data: admin, error: adminError } = await supabase
-      .from("users")
-      .select("id, role")
-      .eq("id", adminId)
-      .single();
+    const url = new URL(event.rawUrl || event.headers["x-nf-request-url"]);
 
-    if (adminError || !admin || admin.role !== "admin") {
-      return {
-        statusCode: 403,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: "Forbidden" }),
-      };
+    const page  = Math.max(1, parseInt(url.searchParams.get("page")  || "1", 10));
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "10", 10)));
+
+    // Ask for total only when explicitly requested (slower on large tables)
+    const includeTotal = (url.searchParams.get("includeTotal") || "false").toLowerCase() === "true";
+
+    const status = url.searchParams.get("status") || "all";
+    const q = url.searchParams.get("q") || "";
+
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return { statusCode: 500, body: "missing env" };
     }
 
-    const params = event.queryStringParameters || {};
-    const status = params.status;
-    const search = params.search;
-    const page = Number(params.page || 1);
-    const limit = Number(params.limit || 50);
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    let query = supabase
-      .from("orders")
-      .select(
-        "order_id, user_id, customer_name, customer_email, total, shipping_cost, payment_status, shipping_provider, status, created_at, updated_at",
-        { count: "exact" }
-      )
-      .order("created_at", { ascending: false })
-      .range(from, to);
-
-    if (status && status !== "all") {
-      query = query.eq("status", status);
+    const headers = {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    };
+    if (includeTotal) {
+      // cheaper than exact, still gives an estimate fast
+      headers.Prefer = "count=planned";
     }
 
-    if (search) {
-      query = query.or(
-        `order_id.ilike.%${search}%,customer_name.ilike.%${search}%`
-      );
+    // Build REST query
+    const params = new URLSearchParams();
+    params.set("select", "*");
+    params.set("order", "created_at.desc");
+    params.set("limit", String(limit));
+    params.set("offset", String((page - 1) * limit));
+
+    const filters = [];
+    if (status && status !== "all") filters.push(`status=eq.${encodeURIComponent(status)}`);
+    if (q) filters.push(`order_id=ilike.*${encodeURIComponent(q)}*`);
+    const filterStr = filters.length ? `&${filters.join("&")}` : "";
+
+    const listUrl = `${SUPABASE_URL}/rest/v1/orders?${params.toString()}${filterStr}`;
+
+    // Add an 8s guard so Netlify Dev (10s) doesn't kill us mid-flight
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 8000);
+
+    const resp = await fetch(listUrl, { headers, signal: ac.signal });
+    clearTimeout(t);
+
+    const text = await resp.text();
+    if (!resp.ok) {
+      return { statusCode: resp.status, body: text || "fetch-error" };
     }
 
-    const { data, error, count } = await query;
-
-    if (error) {
-      throw error;
+    const data = text ? JSON.parse(text) : [];
+    let total = null;
+    if (includeTotal) {
+      const cr = resp.headers.get("content-range"); // e.g. "0-9/127"
+      if (cr && cr.includes("/")) total = parseInt(cr.split("/")[1], 10);
     }
 
     return {
       statusCode: 200,
-      headers: corsHeaders(),
-      body: JSON.stringify({ data: data || [], count: count ?? 0 }),
+      body: JSON.stringify({ data, total, page, limit }),
     };
-  } catch (error) {
-    console.error("[admin-get-orders]", error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: error.message || "Internal Server Error" }),
-    };
+  } catch (e) {
+    // If we aborted due to timeout, surface a friendly message
+    if (e && e.name === "AbortError") {
+      return { statusCode: 504, body: "timeout" };
+    }
+    console.error("admin-get-orders error", e);
+    return { statusCode: 500, body: "server-error" };
   }
-}
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-admin-id",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  };
 }
