@@ -1,225 +1,133 @@
 // public/assets/js/controllers/AdminController.js
-import { AdminModel } from "../models/AdminModel.js";
-import { AdminView } from "../views/AdminView.js";
-import { ProductController } from "./ProductController.js";
+// Plain global controller (no modules) to work with admin-dashboard.html
 
-const FILTER_DEBOUNCE = 300;
+(function () {
+  const AdminController = {
+    user: {},
+    orders: [],
+    filtered: [],
+    currentPage: 1,
+    pageSize: 10,
+    currentStatus: "all",
+    currentSearch: "",
 
-export const AdminController = {
-  init() {
-    this.cacheElements();
-    this.bindEvents();
-    this.orders = [];
-    this.filteredOrders = [];
-    this.user = this.getCurrentUser();
-
-    if (!this.user) {
-      const storedRole = localStorage.getItem("user_role");
-      if (storedRole && storedRole !== "admin") {
-        window.location.href = "/index.html";
-      } else {
-        window.location.href = "/login.html";
+    init() {
+      try {
+        this.bindEvents();
+        this.loadOrders();
+      } catch (e) {
+        console.warn("[AdminController.init]", e);
+        AdminView?.showError?.(e?.message || "Failed to initialize Admin.");
       }
-      return;
-    }
+    },
 
-    AdminView.showLoading();
-    this.loadOrders();
-    ProductController.init(this.user);
-    this.switchTab("orders");
-  },
-
-  cacheElements() {
-    this.searchInput = document.getElementById("order-search");
-    this.filterSelect = document.getElementById("order-status-filter");
-    this.table = document.getElementById("orders-table");
-    this.logoutBtn = document.getElementById("admin-logout");
-    this.ordersSection = document.getElementById("orders-section");
-    this.ordersCard = document.getElementById("orders-card");
-    this.productsSection = document.getElementById("products-section");
-    this.tabButtons = document.querySelectorAll(".tab-button");
-  },
-
-  bindEvents() {
-    this.logoutBtn?.addEventListener("click", () => {
-      localStorage.removeItem("user");
-      localStorage.removeItem("user_role");
-      localStorage.removeItem("user_email");
-      localStorage.removeItem("auth_token");
-      window.location.href = "/login.html";
-    });
-
-    if (this.filterSelect) {
-      this.filterSelect.addEventListener("change", () => this.applyFilters());
-    }
-
-    if (this.searchInput) {
-      let debounceTimer;
-      this.searchInput.addEventListener("input", () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => this.applyFilters(), FILTER_DEBOUNCE);
+    bindEvents() {
+      // Open order details when a "View Details" button is clicked
+      document.addEventListener("click", (e) => {
+        const btn = e.target.closest(".js-view-order");
+        if (!btn) return;
+        const orderId = btn.getAttribute("data-order-id");
+        if (orderId) this.openOrder(orderId);
       });
-    }
+    },
 
-    this.table?.addEventListener("change", (event) => {
-      if (event.target.matches(".status-select")) {
-        const select = event.target;
-        const orderId = select.dataset.order;
-        const previousStatus = select.dataset.current || select.dataset.prev || select.getAttribute("data-current") || "pending";
-        const newStatus = select.value;
-        if (previousStatus === newStatus) return;
-        select.disabled = true;
-        this.updateOrderStatus(orderId, newStatus, previousStatus, select);
+    async loadOrders() {
+      try {
+        AdminView?.showLoading?.();
+
+        const page = this.currentPage || 1;
+        const limit = this.pageSize || 10;
+        const status = this.currentStatus || "all";
+        const q = (this.currentSearch || "").trim();
+        const includeTotal = false; // faster locally
+
+        const { data } = await window.OrdersModel.fetchOrders({ page, limit, status, q, includeTotal });
+        this.orders = Array.isArray(data) ? data : [];
+
+        this.applyFilters();
+        const rowsToRender = Array.isArray(this.filtered) && this.filtered.length ? this.filtered : this.orders;
+        this.renderOrdersTable(rowsToRender);
+      } catch (error) {
+        console.warn("[AdminController.loadOrders]", error);
+        if (error?.status === 401 || error?.status === 403) {
+          alert("You are not authorized to view this page.");
+          window.location.href = "/login.html";
+          return;
+        }
+        AdminView?.showError?.(error?.message || "Failed to load orders.");
+      } finally {
+        AdminView?.hideLoading?.();
       }
-    });
+    },
 
-    this.table?.addEventListener("click", (event) => {
-      if (event.target.matches(".view-btn")) {
-        const orderId = event.target.dataset.order;
-        this.showOrderDetails(orderId);
+    applyFilters() {
+      // No-op for now; wire status/search later if desired
+      this.filtered = this.orders;
+    },
+
+    renderOrdersTable(rows = []) {
+      const tbody = document.getElementById("orders-body");
+      if (!tbody) return;
+
+      const safe = (v) => (v == null ? "—" : v);
+
+      tbody.innerHTML = rows.map((row) => {
+        const id       = row.order_id ?? "";
+        const customer = row.customer_name ?? row.customer ?? "—";
+        const created  = row.created_at ? new Date(row.created_at).toLocaleString() : "—";
+        const total    = row.gross_amount ?? row.total ?? "—";
+        const payment  = row.payment_type ?? "—";
+        const shipping = row.shipping_status ?? "—";
+        const status   = row.status ?? row.transaction_status ?? "—";
+
+        return `
+          <tr>
+            <td data-label="Order ID">${safe(id)}</td>
+            <td data-label="Customer">${safe(customer)}</td>
+            <td data-label="Date">${safe(created)}</td>
+            <td data-label="Total">${safe(total)}</td>
+            <td data-label="Payment">${safe(payment)}</td>
+            <td data-label="Shipping">${safe(shipping)}</td>
+            <td data-label="Status">${safe(status)}</td>
+            <td data-label="Actions">
+              <button
+                type="button"
+                class="pill-button secondary js-view-order"
+                data-order-id="${id}">
+                View Details
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      const empty = document.getElementById("orders-empty");
+      if (empty) empty.hidden = rows.length !== 0;
+    },
+
+    // Fetch one order and show details (modal/panel)
+    async openOrder(orderId) {
+      try {
+        AdminView?.showOrderLoading?.();
+        const order = await window.OrdersModel.fetchOrder(orderId);
+        AdminView?.renderOrderDetails
+          ? AdminView.renderOrderDetails(order)
+          : alert(
+              `Order ${order?.order_id ?? "—"}\n` +
+              `Status: ${order?.status ?? order?.transaction_status ?? "—"}\n` +
+              `Payment: ${order?.payment_type ?? "—"}\n` +
+              `Amount: ${order?.gross_amount ?? order?.total ?? "—"}`
+            );
+      } catch (err) {
+        console.warn("[AdminController.openOrder]", err);
+        AdminView?.showError?.("Failed to load order details.");
+      } finally {
+        AdminView?.hideOrderLoading?.();
       }
-    });
+    },
+  };
 
-    this.tabButtons?.forEach((button) =>
-      button.addEventListener("click", () => this.switchTab(button.dataset.tab))
-    );
-  },
+  window.AdminController = AdminController;
+  document.addEventListener("DOMContentLoaded", () => AdminController.init());
+})();
 
-  getCurrentUser() {
-    try {
-      const user = JSON.parse(localStorage.getItem("user") || "null");
-      if (!user?.id) return null;
-      user.role = user.role || localStorage.getItem("user_role") || "user";
-      if (user.role !== "admin") {
-        return null;
-      }
-      return user;
-    } catch {
-      return null;
-    }
-  },
-
-  async loadOrders() {
-  try {
-    AdminView.showLoading();
-
-    const page   = this.currentPage || 1;
-    const limit  = this.pageSize || 10;           // ↓ default smaller for local speed
-    const status = this.currentStatus || "all";
-    const q      = (this.currentSearch || "").trim();
-    const includeTotal = false;                   // set true only when you need totals
-
-    const { data } = await window.OrdersModel.fetchOrders({ page, limit, status, q, includeTotal });
-    this.orders = Array.isArray(data) ? data : [];
-
-    this.applyFilters();
-  } catch (error) {
-    console.warn("[AdminController.loadOrders]", error);
-    if (error.status === 401 || error.status === 403) {
-      alert("You are not authorized to view this page.");
-      window.location.href = "/login.html";
-      return;
-    }
-    AdminView.showError(error.message || "Failed to load orders.");
-  } finally {
-    AdminView.hideLoading();
-  }
-},
-
-
-
-  applyFilters() {
-    const term = (this.searchInput?.value || "").trim().toLowerCase();
-    const statusFilter = (this.filterSelect?.value || "all").toLowerCase();
-
-    let filtered = Array.isArray(this.orders) ? [...this.orders] : [];
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(
-        (order) => String(order.status || "").toLowerCase() === statusFilter
-      );
-    }
-
-    if (term) {
-      filtered = filtered.filter((order) => {
-        const name = String(order.customer_name || order.user_id || "").toLowerCase();
-        const email = String(order.customer_email || "").toLowerCase();
-        const id = String(order.order_id || "").toLowerCase();
-        return (
-          name.includes(term) ||
-          email.includes(term) ||
-          id.includes(term)
-        );
-      });
-    }
-
-    this.filteredOrders = filtered;
-    AdminView.renderOrdersTable(filtered);
-  },
-
-  switchTab(tab) {
-    if (this.activeTab === tab) return;
-    this.activeTab = tab;
-
-    this.tabButtons?.forEach((button) =>
-      button.classList.toggle("active", button.dataset.tab === tab)
-    );
-
-    if (tab === "orders") {
-      this.ordersSection?.removeAttribute("hidden");
-      this.ordersCard?.removeAttribute("hidden");
-      this.productsSection?.setAttribute("hidden", "");
-    } else {
-      this.ordersSection?.setAttribute("hidden", "");
-      this.ordersCard?.setAttribute("hidden", "");
-      this.productsSection?.removeAttribute("hidden");
-    }
-  },
-
-  async updateOrderStatus(orderId, status, previousStatus, selectEl) {
-    if (!orderId) return;
-    try {
-      const updated = await AdminModel.updateOrderStatus({
-        adminId: this.user.id,
-        orderId,
-        status,
-      });
-      const index = this.orders.findIndex((o) => o.order_id === orderId);
-      if (index >= 0) {
-        this.orders[index] = { ...this.orders[index], ...updated };
-      } else {
-        this.orders.push(updated);
-      }
-      this.applyFilters();
-      AdminView.showToast(`✔ Order ${orderId} marked as ${(updated.status || status).toUpperCase()}.`);
-    } catch (error) {
-      console.warn("[AdminController.updateOrderStatus]", error);
-      if (selectEl) {
-        selectEl.value = previousStatus;
-        selectEl.dataset.current = previousStatus;
-        selectEl.disabled = false;
-      }
-      AdminView.showToast(error.message || "Failed to update order status.", "error");
-    }
-  },
-
-  async showOrderDetails(orderId) {
-    if (!orderId) return;
-    try {
-      AdminView.showModalLoading();
-      const detail = await AdminModel.fetchOrderDetails({
-        adminId: this.user.id,
-        orderId,
-      });
-      AdminView.renderOrderDetails(detail);
-    } catch (error) {
-      console.warn("[AdminController.showOrderDetails]", error);
-      AdminView.closeModal();
-      AdminView.showToast(error.message || "Failed to load order details.", "error");
-    }
-  },
-};
-
-window.addEventListener("DOMContentLoaded", () => AdminController.init());
-
-// TODO: wire “View Details” button to a modal with line items in the next phase.
