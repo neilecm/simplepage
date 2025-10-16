@@ -1,94 +1,91 @@
 // netlify/functions/payment-callback.js
 import crypto from "crypto";
-import fetch from "node-fetch"; // ensure bundled, or global fetch if runtime supports
-
 const { MIDTRANS_SERVER_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+const fetch2 = (...a) => import("node-fetch").then(({default: f}) => f(...a));
 
-function sha512(input) {
-  return crypto.createHash("sha512").update(input).digest("hex");
-}
+const sha512 = s => crypto.createHash("sha512").update(s).digest("hex");
+const ok = body => ({ statusCode: 200, body });
 
-function verifySignature({ order_id, status_code, gross_amount, signature_key }) {
-  if (!MIDTRANS_SERVER_KEY) return false; // if missing, fail closed
-  const local = sha512(`${order_id}${status_code}${gross_amount}${MIDTRANS_SERVER_KEY}`);
-  return local === String(signature_key);
-}
+const mapStatus = (tx, fraud) => {
+  if (tx === "capture")     return fraud === "accept" ? "paid" : "review";
+  if (tx === "settlement")  return "paid";
+  if (tx === "pending")     return "pending";
+  if (tx === "deny")        return "failed";
+  if (tx === "expire")      return "expired";
+  if (tx === "cancel")      return "canceled";
+  if (tx === "refund" || tx === "partial_refund") return "refunded";
+  if (tx === "chargeback")  return "chargeback";
+  return tx || "unknown";
+};
 
 export async function handler(event) {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 200, body: "ok" }; // Midtrans may probe; stay 200
+  if (event.httpMethod !== "POST") return ok("ok");
+
+  let p = {};
+  try { p = JSON.parse(event.body || "{}"); } catch { return ok("invalid-json"); }
+
+  const { order_id, status_code, gross_amount, signature_key } = p;
+  const valid = MIDTRANS_SERVER_KEY &&
+    sha512(`${order_id}${status_code}${gross_amount}${MIDTRANS_SERVER_KEY}`) === String(signature_key || "");
+  if (!valid) return ok("invalid-signature");
+
+  // Parse transaction_time to timestamptz if present
+  let txTime = null;
+  if (p.transaction_time) {
+    const iso = p.transaction_time.replace(" ", "T") + "Z"; // Midtrans sends "YYYY-MM-DD HH:mm:ss"
+    txTime = new Date(iso).toISOString();
   }
 
-  let payload;
-  try {
-    payload = JSON.parse(event.body || "{}");
-  } catch {
-    return { statusCode: 200, body: "invalid-json" };
-  }
-
-  const {
-    order_id,
-    status_code,
-    gross_amount,
-    transaction_status,        // capture, settlement, deny, cancel, expire, pending
-    fraud_status,              // accept, challenge
-    payment_type,
-    transaction_time,
-    transaction_id,
-    signature_key,
-  } = payload;
-
-  // 1) Verify signature; if invalid, return 200 quickly.
-  if (!verifySignature({ order_id, status_code, gross_amount, signature_key })) {
-    console.warn("payment-callback: invalid signature", { order_id, status_code, gross_amount });
-    return { statusCode: 200, body: "invalid-signature" };
-  }
-
-  // 2) Map Midtrans status -> your order status (adjust as you like)
-  const statusMap = {
-    capture: fraud_status === "accept" ? "paid" : "review",
-    settlement: "paid",
-    pending: "pending",
-    deny: "failed",
-    expire: "expired",
-    cancel: "canceled",
-    refund: "refunded",
-    partial_refund: "refunded",
-    chargeback: "chargeback",
+  const row = {
+    order_id: p.order_id,
+    transaction_id: p.transaction_id || null,
+    transaction_status: p.transaction_status || null,
+    fraud_status: p.fraud_status || null,
+    status_code: p.status_code || null,
+    status_message: p.status_message || null,
+    payment_type: p.payment_type || null,
+    gross_amount: p.gross_amount ? Number(p.gross_amount) : null,
+    currency: p.currency || null,
+    approval_code: p.approval_code || null,
+    bank: p.bank || null,
+    channel_response_code: p.channel_response_code || null,
+    channel_response_message: p.channel_response_message || null,
+    card_type: p.card_type || null,
+    masked_card: p.masked_card || null,
+    eci: p.eci || null,
+    three_ds_version: p.three_ds_version || null,
+    merchant_id: p.merchant_id || null,
+    transaction_time: txTime,
+    signature_key: p.signature_key || null,
+    raw: p,
+    status: mapStatus(p.transaction_status, p.fraud_status)
   };
-  const status = statusMap[transaction_status] || transaction_status || "unknown";
 
-  // 3) Upsert to Supabase via Service Role (no RLS worries). Keep this minimal.
+  const headers = {
+    "Content-Type": "application/json",
+    apikey: SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+  };
+
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
+    // 1) Log every webhook
+    await fetch2(`${SUPABASE_URL}/rest/v1/webhook_events`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        Prefer: "resolution=merge-duplicates"
-      },
-      body: JSON.stringify([{
-        order_id,
-        status,
-        total: Number(gross_amount) || null,
-        payment_type,
-        transaction_time,
-        transaction_id,
-        raw: payload // optional: store raw webhook for debugging
-      }]),
+      headers,
+      body: JSON.stringify([{ order_id: row.order_id, transaction_id: row.transaction_id, payload: p }])
     });
-    if (!res.ok) {
-      const txt = await res.text();
-      console.error("supabase upsert failed", res.status, txt);
-      // Still return 200 so Midtrans won’t retry forever; you can alert/monitor on this
-      return { statusCode: 200, body: "upsert-error" };
-    }
+
+    // 2) Upsert the order (merge on conflict)
+    await fetch2(`${SUPABASE_URL}/rest/v1/orders`, {
+      method: "POST",
+      headers: { ...headers, Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify([row])
+    });
   } catch (e) {
-    console.error("supabase fetch error", e);
-    return { statusCode: 200, body: "upsert-exception" };
+    console.error("supabase error", e);
+    // Still return 200 so Midtrans doesn’t retry forever
+    return ok("upsert-exception");
   }
 
-  // 4) Always 200, quickly.
-  return { statusCode: 200, body: "ok" };
+  return ok("ok");
 }
