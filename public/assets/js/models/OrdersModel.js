@@ -1,4 +1,6 @@
 // public/assets/js/models/OrdersModel.js
+// Global (non-module) model used by AdminController and the Admin Dashboard
+
 window.OrdersModel = (() => {
   const listEP   = "/.netlify/functions/admin-get-orders";
   const detailEP = "/.netlify/functions/admin-get-order-details";
@@ -8,6 +10,7 @@ window.OrdersModel = (() => {
     const params = new URLSearchParams({ page, limit, includeTotal: String(includeTotal) });
     if (status && status !== "all") params.set("status", status);
     if (q) params.set("q", q);
+
     const res = await fetch(`${listEP}?${params.toString()}`, { credentials: "include" });
     if (!res.ok) throw new Error(await res.text());
     return res.json(); // { data, total, page, limit }
@@ -33,3 +36,4 @@ window.OrdersModel = (() => {
 
   return { fetchOrders, fetchOrder, updateOrder };
 })();
+

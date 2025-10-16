@@ -761,9 +761,135 @@
     </div>
   </div>
 
-  <script type="module" src="../assets/js/controllers/AdminController.js"></script>
-  <script src="/assets/js/models/OrdersModel.js"></script>
-  <script src="/assets/js/controllers/AdminController.js"></script>
+  <script>
+  // Minimal AdminView helpers to open/close and render the existing #order-modal
+  window.AdminView = window.AdminView || {};
+
+  AdminView.renderOrderDetails = (o) => {
+    const modal = document.getElementById("order-modal");
+    const content = document.getElementById("order-modal-content");
+
+    // Build a simple details layout using your existing styles
+    content.innerHTML = `
+      <div class="modal-section">
+        <h2 id="order-modal-title" style="margin:0;color:var(--brand-red)">Order ${o.order_id ?? "—"}</h2>
+      </div>
+
+      <div class="modal-section modal-grid">
+        <div>
+          <span class="modal-label">Status</span>
+          <div class="modal-value">${o.status ?? o.transaction_status ?? "—"}</div>
+        </div>
+        <div>
+          <span class="modal-label">Payment</span>
+          <div class="modal-value">${o.payment_type ?? "—"}</div>
+        </div>
+        <div>
+          <span class="modal-label">Amount</span>
+          <div class="modal-value">${o.gross_amount ?? o.total ?? "—"}</div>
+        </div>
+        <div>
+          <span class="modal-label">Bank/Card</span>
+          <div class="modal-value">${[o.bank, o.masked_card].filter(Boolean).join(" ") || "—"}</div>
+        </div>
+        <div>
+          <span class="modal-label">Transaction ID</span>
+          <div class="modal-value">${o.transaction_id ?? "—"}</div>
+        </div>
+        <div>
+          <span class="modal-label">Created</span>
+          <div class="modal-value">${o.created_at ? new Date(o.created_at).toLocaleString() : "—"}</div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Raw payload</h3>
+        <pre style="white-space:pre-wrap;background:rgba(0,0,0,.03);padding:10px;border-radius:8px;max-height:240px;overflow:auto;">${
+          o.raw ? JSON.stringify(o.raw, null, 2) : "—"
+        }</pre>
+      </div>
+    `;
+
+    modal.classList.add("show");
+    modal.removeAttribute("hidden");
+  };
+
+  AdminView.showOrderLoading = () => {
+    // hook for spinner if you want
+  };
+  AdminView.hideOrderLoading = () => {};
+
+  // Wire modal close buttons/overlay
+  (function () {
+    const modal = document.getElementById("order-modal");
+    const closeBtn = document.getElementById("order-modal-close");
+    const close = () => {
+      modal.classList.remove("show");
+      modal.setAttribute("hidden", "");
+    };
+    closeBtn?.addEventListener("click", close);
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) close();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("show")) close();
+    });
+  })();
+</script>
+
+<!-- AdminView shim: gives AdminController the small helpers it expects -->
+<script>
+  window.AdminView = window.AdminView || {};
+  AdminView.showLoading = () => {
+    const el = document.getElementById("admin-loading");
+    if (el) el.style.display = "block";
+    const err = document.getElementById("admin-error");
+    if (err) { err.hidden = true; err.textContent = ""; }
+  };
+  AdminView.hideLoading = () => {
+    const el = document.getElementById("admin-loading");
+    if (el) el.style.display = "none";
+  };
+  AdminView.showError = (msg = "Something went wrong.") => {
+    const el = document.getElementById("admin-error");
+    if (el) { el.hidden = false; el.textContent = msg; }
+    const loading = document.getElementById("admin-loading");
+    if (loading) loading.style.display = "none";
+  };
+
+  // Simple modal renderer using existing #order-modal markup (if you have it),
+  // otherwise falls back to alert:
+  AdminView.renderOrderDetails = (o) => {
+    const modal = document.getElementById("order-modal");
+    const content = document.getElementById("order-modal-content");
+    if (modal && content) {
+      content.innerHTML = `
+        <h2 style="margin:0">Order ${o.order_id ?? "—"}</h2>
+        <p><b>Status:</b> ${o.status ?? o.transaction_status ?? "—"}</p>
+        <p><b>Payment:</b> ${o.payment_type ?? "—"}</p>
+        <p><b>Amount:</b> ${o.gross_amount ?? o.total ?? "—"}</p>
+        <p><b>Bank/Card:</b> ${[o.bank, o.masked_card].filter(Boolean).join(" ") || "—"}</p>
+        <pre style="white-space:pre-wrap;background:#f6f6f6;padding:8px;border-radius:8px;max-height:220px;overflow:auto">${
+          o.raw ? JSON.stringify(o.raw, null, 2) : "—"
+        }</pre>
+      `;
+      modal.classList.add("show");
+      modal.removeAttribute("hidden");
+    } else {
+      alert(
+        `Order ${o.order_id}\n` +
+        `Status: ${o.status ?? o.transaction_status ?? "—"}\n` +
+        `Payment: ${o.payment_type ?? "—"}\n` +
+        `Amount: ${o.gross_amount ?? o.total ?? "—"}`
+      );
+    }
+  };
+</script>
+
+<!-- Load model BEFORE controller -->
+<script src="/assets/js/models/OrdersModel.js"></script>
+<script src="/assets/js/controllers/AdminController.js"></script>
+
 
 </body>
 </html>
