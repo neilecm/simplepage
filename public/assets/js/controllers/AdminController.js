@@ -100,32 +100,33 @@ export const AdminController = {
   },
 
   async loadOrders() {
-    try {
-      AdminView.showLoading();
-      const response = await AdminModel.fetchOrders({
-        adminId: this.user.id,
-      });
+  try {
+    AdminView.showLoading();
 
-      if (response && Array.isArray(response.data)) {
-        this.orders = response.data;
-      } else if (Array.isArray(response)) {
-        this.orders = response;
-      } else {
-        this.orders = [];
-      }
-      this.applyFilters();
-    } catch (error) {
-      console.warn("[AdminController.loadOrders]", error);
-      if (error.status === 401 || error.status === 403) {
-        alert("You are not authorized to view this page.");
-        window.location.href = "/login.html";
-        return;
-      }
-      AdminView.showError(error.message || "Failed to load orders.");
-    } finally {
-      AdminView.hideLoading();
+    const page   = this.currentPage || 1;
+    const limit  = this.pageSize || 10;           // ↓ default smaller for local speed
+    const status = this.currentStatus || "all";
+    const q      = (this.currentSearch || "").trim();
+    const includeTotal = false;                   // set true only when you need totals
+
+    const { data } = await window.OrdersModel.fetchOrders({ page, limit, status, q, includeTotal });
+    this.orders = Array.isArray(data) ? data : [];
+
+    this.applyFilters();
+  } catch (error) {
+    console.warn("[AdminController.loadOrders]", error);
+    if (error.status === 401 || error.status === 403) {
+      alert("You are not authorized to view this page.");
+      window.location.href = "/login.html";
+      return;
     }
-  },
+    AdminView.showError(error.message || "Failed to load orders.");
+  } finally {
+    AdminView.hideLoading();
+  }
+},
+
+
 
   applyFilters() {
     const term = (this.searchInput?.value || "").trim().toLowerCase();
