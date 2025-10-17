@@ -1,39 +1,52 @@
-// netlify/functions/create-order.js
-import { OrderController } from "../../src/controllers/OrderController.js";
+import { createClient } from "@supabase/supabase-js";
 
 export async function handler(event) {
   try {
-    // Handle CORS preflight
-    if (event.httpMethod === "OPTIONS")
-      return { statusCode: 200, headers: cors(), body: "" };
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
+    }
 
-    // Parse incoming data
-    const body = JSON.parse(event.body);
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Delegate to MVC controller
-    const result = await OrderController.createOrder(body);
+    const body = JSON.parse(event.body || "{}");
+    const {
+      order_id,
+      total = null,
+      payment_type = null,
+      status = "pending",
+      user_id = null,
+      guest_id = null,
+    } = body;
 
-    // Respond to frontend
-    return {
-      statusCode: 200,
-      headers: { ...cors(), "Content-Type": "application/json" },
-      body: JSON.stringify(result),
-    };
-  } catch (err) {
-    console.error("[create-order]", err);
-    return {
-      statusCode: 500,
-      headers: cors(),
-      body: JSON.stringify({ error: err.message }),
-    };
+    if (!order_id) {
+      return { statusCode: 400, body: JSON.stringify({ error: "order_id required" }) };
+    }
+
+    // 1) insert the order (with user or guest id)
+    const { error: insErr } = await supabase.from("orders").insert([{
+      order_id, user_id, guest_id, total, payment_type, status
+    }]);
+    if (insErr) {
+      return { statusCode: 500, body: JSON.stringify({ error: insErr.message }) };
+    }
+
+    // 2) attach latest address for that identity to this order
+    if (user_id || guest_id) {
+      const match = user_id ? { user_id, order_id: null } : { guest_id, order_id: null };
+
+      const { data: latestAddr, error: selErr } = await supabase
+        .from("addresses").select("id").match(match)
+        .order("created_at", { ascending: false })
+        .limit(1).maybeSingle();
+
+      if (!selErr && latestAddr?.id) {
+        await supabase.from("addresses").update({ order_id }).eq("id", latestAddr.id);
+      }
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+  } catch (e) {
+    return { statusCode: 500, body: JSON.stringify({ error: e.message || "unknown error" }) };
   }
-}
-
-// Common CORS helper
-function cors() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
 }

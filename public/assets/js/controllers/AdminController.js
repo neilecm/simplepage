@@ -40,7 +40,9 @@ async function __fetchOrders({ page = 1, limit = 10, q = "", status = "all", adm
 
     AdminView.showLoading();
     this.loadOrders();
+    if (window.ProductController?.init) {
     ProductController.init(this.user);
+  }
     this.switchTab("orders");
   },
 
@@ -278,7 +280,10 @@ function __renderOrdersTableV2(rows = []) {
   rows.forEach((row) => {
     const orderId = row.order_id || "—";
     const created = row.created_at ? new Date(row.created_at).toLocaleString() : "—";
-    const total   = row.total ?? row.gross_amount ?? 0;
+     const total   = row.total
+    ?? row.gross_amount
+    ?? Number(row.midtrans_payload?.gross_amount)
+    ?? 0;
     const payType = row.payment_type || "—";
     const status  = row.status || "—";
 
