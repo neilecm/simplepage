@@ -1,6 +1,26 @@
 import { CheckoutModel } from "../models/CheckoutModel.js";
 import { CheckoutView } from "../views/CheckoutView.js";
 
+// Helpers once near the top
+async function __getUserId() {
+  try {
+    if (!window.supabase?.auth?.getUser) return null;
+    const { data: { user } } = await window.supabase.auth.getUser();
+    return user?.id || null;
+  } catch { return null; }
+}
+
+function __ensureGuestId() {
+  const k = "guest_id";
+  let gid = localStorage.getItem(k);
+  if (!gid) {
+    gid = (crypto.randomUUID?.() || (Date.now() + "-" + Math.random().toString(16).slice(2)));
+    localStorage.setItem(k, gid);
+  }
+  return gid;
+}
+
+
 export const CheckoutController = {
   async init() {
     // Reset stale shipping data upon entering checkout
@@ -83,6 +103,108 @@ export const CheckoutController = {
       shipping_cost: shippingCost,
     };
 
+// get logged-in user id if available
+async function getCurrentUserId() {
+  try {
+    if (!window.supabase?.auth?.getUser) return null;
+    const { data: { user } } = await window.supabase.auth.getUser();
+    return user?.id || null;
+  } catch { return null; }
+}
+
+// ensure a persistent guest id
+function ensureGuestId() {
+  const k = "guest_id";
+  let gid = localStorage.getItem(k);
+  if (!gid) {
+    gid = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+    localStorage.setItem(k, gid);
+  }
+  return gid;
+}
+
+async function saveAddressAndCreateOrder(order_id, addrFields, shipSel) {
+  // ==== PATCH: persist address to Supabase via direct function ====
+const user_id  = await __getUserId();
+const guest_id = user_id ? null : __ensureGuestId();
+
+// Use your existing helpers to read the form & Komerce choice.
+// If you don't have them, replace with your current variables.
+const addr = (typeof __readAddressForm === "function")
+  ? __readAddressForm()
+  : {
+      full_name:  document.getElementById("full_name")?.value?.trim(),
+      phone:      document.getElementById("phone")?.value?.trim(),
+      street:     document.getElementById("street")?.value?.trim(),
+      province_id:document.getElementById("province")?.value,
+      city_id:    document.getElementById("city_id")?.value,
+      district_id:document.getElementById("district")?.value,
+      subdistrict_id:document.getElementById("subdistrict")?.value,
+      postal_code:document.getElementById("postal_code")?.value
+    };
+
+const ship = (typeof __readShippingSelection === "function")
+  ? __readShippingSelection()
+  : JSON.parse(localStorage.getItem("komerceShippingSelection") || "{}");
+
+// IMPORTANT: call the **new** function, not the old router
+await fetch("/.netlify/functions/auth-save-address", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    user_id,
+    guest_id,
+    full_name:        addr.full_name,
+    phone:            addr.phone,
+    street:           addr.street,
+    province_id:      addr.province_id,
+    city_id:          addr.city_id,
+    district_id:      addr.district_id,
+    subdistrict_id:   addr.subdistrict_id,
+    postal_code:      addr.postal_code,
+    courier:          ship?.courier || ship?.code || null,
+    shipping_service: ship?.service || ship?.name || null
+  })
+});
+// ==== /PATCH ====
+
+// ==== PATCH: identity helpers (top of file) ====
+async function __getUserId() {
+  try {
+    if (!window.supabase?.auth?.getUser) return null;
+    const { data: { user } } = await window.supabase.auth.getUser();
+    return user?.id || null;
+  } catch { return null; }
+}
+
+function __ensureGuestId() {
+  const k = "guest_id";
+  let gid = localStorage.getItem(k);
+  if (!gid) {
+    gid = (crypto.randomUUID?.() || (Date.now() + "-" + Math.random().toString(16).slice(2)));
+    localStorage.setItem(k, gid);
+  }
+  return gid;
+}
+// ==== /PATCH ====
+
+
+
+  // 2) create order record with the same identity
+  await fetch("/.netlify/functions/create-order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      order_id,
+      user_id, guest_id,
+      total: addrFields?.total ?? null,
+      payment_type: "credit_card",
+      status: "pending"
+    })
+  });
+}
+
+
     // Validate fields
     const missing = Object.entries(fields)
       .filter(([_, v]) => !v)
@@ -92,16 +214,50 @@ export const CheckoutController = {
       return;
     }
 
-    const res = await CheckoutModel.saveAddress(fields);
-    if (res.error) {
-      console.error("Save address error:", res.error);
-      alert("❌ Failed to save address.");
+    // New direct call to auth-save-address (replace legacy router)
+    const user_id = await __getUserId();
+    const guest_id = user_id ? null : __ensureGuestId();
+
+    // Reuse existing helpers if present
+    const addr = (typeof __readAddressForm === "function") ? __readAddressForm() : {
+      full_name: document.getElementById("full_name")?.value?.trim(),
+      phone: document.getElementById("phone")?.value?.trim(),
+      street: document.getElementById("street_address")?.value?.trim() || document.getElementById("street")?.value?.trim(),
+      province_id: document.getElementById("province")?.value,
+      city_id: document.getElementById("city")?.value || document.getElementById("city_id")?.value,
+      district_id: document.getElementById("district")?.value,
+      subdistrict_id: document.getElementById("subdistrict")?.value,
+      postal_code: document.getElementById("postal_code")?.value?.trim(),
+    };
+    const ship = (typeof __readShippingSelection === "function") ? __readShippingSelection() : (JSON.parse(localStorage.getItem("komerceShippingSelection") || "{}") || null);
+
+    const resp = await fetch('/.netlify/functions/auth-save-address', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id,
+        guest_id,
+        full_name:       addr.full_name,
+        phone:           addr.phone,
+        street:          addr.street,
+        province_id:     addr.province_id,
+        city_id:         addr.city_id,
+        district_id:     addr.district_id,
+        subdistrict_id:  addr.subdistrict_id,
+        postal_code:     addr.postal_code,
+        courier:         ship?.courier || ship?.code || null,
+        shipping_service:ship?.service || ship?.name || null
+      })
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error('auth-save-address failed:', t);
+      alert('❌ Failed to save address.');
       return;
     }
 
     localStorage.setItem("shipping_cost", fields.shipping_cost);
     localStorage.setItem("address_data", JSON.stringify(fields));
-    alert("✅ Address saved successfully!");
     window.location.href = "payment.html";
   },
 };

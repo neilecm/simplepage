@@ -1,79 +1,63 @@
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "crypto";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 export async function handler(event) {
   try {
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
+    }
+
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Missing Supabase env vars" }) };
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
     const body = JSON.parse(event.body || "{}");
-    let {
-      user_id,
+
+    // identity: one of these must be present
+    const user_id  = body.user_id ?? null;
+    const guest_id = body.guest_id ?? null;
+
+    const {
       full_name,
-      street,
-      province,
-      city,
-      district,
-      subdistrict,
-      postal_code,
       phone,
+      street,
+      province_id, city_id, district_id, subdistrict_id,
+      postal_code,
+      courier = null,
+      shipping_service = null,
     } = body;
 
-    // --- handle guest logic
-    let guest_id = null;
-    if (!user_id || user_id === "guest" || user_id === "") {
-      user_id = null;
-      guest_id = randomUUID(); // generate a valid UUID for guests
-      console.log("🧾 Generated guest_id:", guest_id);
-    }
-
-    // --- basic validation
-    if (!full_name || !street || !province || !city || !district || !postal_code || !phone) {
+    if (!full_name || !street || !(user_id || guest_id)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Missing required address fields" }),
+        body: JSON.stringify({ error: "full_name, street and user_id or guest_id are required" })
       };
     }
 
-    // --- build payload
-    const newAddress = {
-      user_id,
-      guest_id,
+    const insertRow = {
+      user_id, guest_id,
       full_name,
-      street,
-      province,
-      city,
-      district,
-      subdistrict: subdistrict || null,
-      postal_code,
       phone,
+      street,
+      province: province_id ?? null,
+      city_id: city_id ?? null,
+      district: district_id ?? null,
+      subdistrict: subdistrict_id ?? null,
+      postal_code: postal_code ?? null,
+      courier,
+      shipping_service,
+      order_id: null, // will be updated after order creation
     };
 
-    // --- insert into Supabase
-    const { data, error } = await supabase.from("addresses").insert([newAddress]);
-
+    const { error } = await supabase.from("addresses").insert([insertRow]);
     if (error) {
-      console.error("[Supabase Insert Error]", error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: "Supabase insert failed",
-          details: error.message,
-        }),
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: "Address saved successfully", data }),
-    };
-  } catch (err) {
-    console.error("[auth-save-address] Fatal error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Internal Server Error", details: err.message }),
-    };
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+  } catch (e) {
+    return { statusCode: 500, body: JSON.stringify({ error: e.message || "unknown error" }) };
   }
 }
