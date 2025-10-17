@@ -1,63 +1,50 @@
-import { createClient } from "@supabase/supabase-js";
+// netlify/functions/auth-save-address.js (ESM)
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export async function handler(event) {
   try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
-    }
+    const body = event.body ? JSON.parse(event.body) : {};
 
-    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return { statusCode: 500, body: JSON.stringify({ error: "Missing Supabase env vars" }) };
-    }
+    const payload = {
+      // identities (one of them must exist)
+      user_id:  body.user_id  ?? null,
+      guest_id: body.guest_id ?? null,
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      // address core (use your actual column names)
+      full_name:       body.full_name       ?? null,
+      phone:           body.phone           ?? null,
+      street:          body.street          ?? null,
+      province:        body.province_id     ?? body.province ?? null, // you store plain text "province"
+      city_id:         body.city_id         ?? null,                  // you have a city_id column
+      district:        body.district_id     ?? body.district ?? null, // you store plain text "district"
+      subdistrict:     body.subdistrict_id  ?? body.subdistrict ?? null, // plain text "subdistrict"
+      postal_code:     body.postal_code     ?? null,
 
-    const body = JSON.parse(event.body || "{}");
+      // shipping selections (these are what the Admin view wants)
+      courier:         body.courier         ?? null,
+      shipping_service:body.shipping_service ?? null,
 
-    // identity: one of these must be present
-    const user_id  = body.user_id ?? null;
-    const guest_id = body.guest_id ?? null;
-
-    const {
-      full_name,
-      phone,
-      street,
-      province_id, city_id, district_id, subdistrict_id,
-      postal_code,
-      courier = null,
-      shipping_service = null,
-    } = body;
-
-    if (!full_name || !street || !(user_id || guest_id)) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "full_name, street and user_id or guest_id are required" })
-      };
-    }
-
-    const insertRow = {
-      user_id, guest_id,
-      full_name,
-      phone,
-      street,
-      province: province_id ?? null,
-      city_id: city_id ?? null,
-      district: district_id ?? null,
-      subdistrict: subdistrict_id ?? null,
-      postal_code: postal_code ?? null,
-      courier,
-      shipping_service,
-      order_id: null, // will be updated after order creation
+      // order_id intentionally null here; create-transaction will attach it later
+      order_id: null,
+      // optional: keep raw meta if you pass any
+      meta: body.meta ?? null
     };
 
-    const { error } = await supabase.from("addresses").insert([insertRow]);
-    if (error) {
-      return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+    // Very light validation (avoid inserting totally empty rows)
+    if (!payload.user_id && !payload.guest_id) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing user_id | guest_id' }) };
+    }
+    if (!payload.full_name) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing full_name' }) };
     }
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
-  } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: e.message || "unknown error" }) };
+    const { data, error } = await supabase.from('addresses').insert(payload).select('id').single();
+    if (error) throw error;
+
+    return { statusCode: 200, body: JSON.stringify({ id: data.id }) };
+  } catch (err) {
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 }
