@@ -5,12 +5,14 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function makeOrderId() { return 'ORDER-' + Date.now(); }
+// Require clients to pass order_id; do not auto-generate to ensure idempotency
+function bad(msg) { return { statusCode: 400, body: JSON.stringify({ error: msg }) }; }
 
 module.exports.handler = async (event) => {
   try {
     const body = event.body ? JSON.parse(event.body) : {};
-    const order_id = body.order_id || makeOrderId();
+    const order_id = body.order_id;
+    if (!order_id) return bad('order_id required');
 
     let grossAmount = Number(
       body.amount ??
@@ -42,17 +44,27 @@ module.exports.handler = async (event) => {
     const user_id  = body.user_id  || null;
     const guest_id = body.guest_id || null;
 
-    // upsert order
-    await supabase
+    // Check existing order for idempotency
+    const { data: existing } = await supabase
       .from('orders')
-      .upsert([{
-        order_id,
-        user_id,
-        guest_id,
-        total: grossAmount || null,
-        payment_type: 'credit_card',
-        status: 'pending'
-      }], { onConflict: 'order_id' });
+      .select('order_id,status,snap_token,redirect_url')
+      .eq('order_id', order_id)
+      .maybeSingle();
+
+    if (existing) {
+      if (existing.status === 'paid') {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ already_paid: true, order_id, token: null, redirect_url: existing.redirect_url || null })
+        };
+      }
+      if (existing.snap_token && existing.redirect_url) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ order_id, token: existing.snap_token, redirect_url: existing.redirect_url })
+        };
+      }
+    }
 
     // link latest address for identity to this order
     if (user_id || guest_id) {
@@ -75,6 +87,20 @@ module.exports.handler = async (event) => {
     });
 
     const trx = await snap.createTransaction(payload);
+
+    // upsert order with token details
+    await supabase
+      .from('orders')
+      .upsert([{
+        order_id,
+        user_id,
+        guest_id,
+        total: grossAmount || null,
+        payment_type: 'credit_card',
+        status: existing?.status || 'pending',
+        snap_token: trx?.token || null,
+        redirect_url: trx?.redirect_url || null,
+      }], { onConflict: 'order_id' });
 
     return {
       statusCode: 200,
