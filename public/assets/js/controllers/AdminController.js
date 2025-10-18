@@ -277,40 +277,40 @@ function __renderOrdersTableV2(rows = []) {
 
   const frag = document.createDocumentFragment();
 
-  rows.forEach((row) => {
-    const orderId = row.order_id || "—";
-    const created = row.created_at ? new Date(row.created_at).toLocaleString() : "—";
-     const total   = row.total
-    ?? row.gross_amount
-    ?? Number(row.midtrans_payload?.gross_amount)
-    ?? 0;
-    const payType = row.payment_type || "—";
-    const status  = row.status || "—";
+  const pick = (...v) => v.find(x => x !== undefined && x !== null && x !== '') ?? null;
+  const fmtIDR = (n) => (typeof n === 'number' && isFinite(n))
+    ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n)
+    : '—';
 
-    const customer = row.customer_name || row.customer || "—";
-    const shipping = row.shipping_method
-      ? (row.shipping_service ? `${row.shipping_method} (${row.shipping_service})` : row.shipping_method)
-      : "—";
+  rows.forEach((row) => {
+    const oid      = pick(row.order_id, row.id);
+    const createdV = row.created_at || row.createdAt || null;
+    const customer = pick(row.customer_name, row.customer, row.full_name);
+
+    const totalNum = pick(row.total, row.total_amount, row.gross_amount, row.amount);
+    const total    = (typeof totalNum === 'number') ? fmtIDR(totalNum) : fmtIDR(Number(totalNum));
+
+    const payment  = pick(row.payment, row.payment_method, row.payment_type) || '—';
+    const status   = (pick(row.status, row.status_badge, row.transaction_status) || '—').toString().toLowerCase();
+
+    const shipMain = pick(row.shipping_display, row.service_label, row.shipping_service) || '—';
+    const shipSub  = `${pick(row.etd_display, row.etd) || '—'} • ${pick(row.shipping_cost_display) || '—'}`;
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td data-label="Order ID">${orderId}</td>
-      <td data-label="Customer">${customer}</td>
-      <td data-label="Date">${created}</td>
-      <td data-label="Total">${__formatIDR(total)}</td>
-      <td data-label="Payment">${payType}</td>
+      <td data-label="Order ID">${oid || '—'}</td>
+      <td data-label="Customer">${customer || '—'}</td>
+      <td data-label="Date">${createdV ? new Date(createdV).toLocaleString('id-ID') : '—'}</td>
+      <td data-label="Total">${total}</td>
+      <td data-label="Payment">${payment}</td>
       <td data-label="Shipping">
-  ${row.shipping_display || row.service_label || row.shipping_service || '—'}
-  <div class="subtext">
-    ${(row.etd_display || row.etd || '—')} • ${(row.shipping_cost_display || '—')}
-  </div>
-</td>
-
-      <td data-label="Shipping">${shipping}</td>
+        ${shipMain}
+        <div class="subtext">${shipSub}</div>
+      </td>
       <td data-label="Status"><span class="badge badge-${status}">${status}</span></td>
       <td data-label="Actions">
         <div class="actions">
-          <button class="pill-button secondary" data-order="${orderId}" data-action="view">View Details</button>
+          <button class="pill-button secondary" data-order="${oid || ''}" data-action="view">View Details</button>
         </div>
       </td>
     `;

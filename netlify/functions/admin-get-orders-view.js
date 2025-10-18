@@ -47,6 +47,22 @@ function latestByOrder(addresses, key = 'order_id') {
 
 const firstDefined = (...vals) => vals.find((v) => v !== undefined && v !== null) ?? null;
 
+function normalizePaymentMethod(x) {
+  return firstDefined(x?.payment_method, x?.payment, x?.payment_type, x?.payment_channel, null);
+}
+
+function normalizeOrderStatus(raw) {
+  if (!raw) return null;
+  const s = String(raw).toLowerCase();
+  if (["settlement","capture","success","paid"].includes(s)) return "paid";
+  if (["pending","authorize"].includes(s)) return "pending";
+  if (["expire","expired"].includes(s)) return "expired";
+  if (["deny","denied","cancel","canceled","failure","failed"].includes(s)) return "failed";
+  if (["refund","partial_refund"].includes(s)) return "refunded";
+  if (["chargeback","dispute"].includes(s)) return "disputed";
+  return s;
+}
+
 // Try a query; if it errors, return { error }
 async function tryQuery(q) {
   try {
@@ -89,10 +105,12 @@ export async function handler(event) {
         const created_at = firstDefined(x.created_at, x.createdAt);
         const customer_name = firstDefined(x.customer_name, x.customer, x.full_name);
         const total_amount = firstDefined(x.total_amount, x.total, x.grandtotal, x.amount, x.total_price);
-        const payment_method = firstDefined(x.payment_method, x.payment, x.payment_type);
+        const payment_method = normalizePaymentMethod(x);
+        const status_raw = firstDefined(x.status, x.transaction_status, x.payment_status, x.midtrans_status);
+        const status = normalizeOrderStatus(status_raw);
         const row = {
-          order_id, created_at, customer_name, total_amount, payment_method,
-          status: x.status ?? null,
+          order_id, created_at, customer_name, total_amount,
+          payment_method, status, status_raw,
           courier_name: x.courier_name ?? null,
           service_code: x.service_code ?? null,
           service_label: x.service_label ?? null,
@@ -108,6 +126,7 @@ export async function handler(event) {
           id: row.order_id,
           total: row.total_amount,
           payment: row.payment_method,
+          status_badge: row.status,
         };
       });
 
@@ -151,8 +170,9 @@ export async function handler(event) {
     created_at: firstDefined(x.created_at, x.createdAt),
     customer_name: firstDefined(x.customer_name, x.customer, x.full_name),
     total_amount: firstDefined(x.total_amount, x.total, x.grandtotal, x.amount, x.total_price),
-    payment_method: firstDefined(x.payment_method, x.payment, x.payment_type),
-    status: x.status ?? null,
+    payment_method: normalizePaymentMethod(x),
+    status_raw: firstDefined(x.status, x.transaction_status, x.payment_status, x.midtrans_status),
+    status: normalizeOrderStatus(firstDefined(x.status, x.transaction_status, x.payment_status, x.midtrans_status)),
   }));
 
   // JS filters (safe)
@@ -196,6 +216,7 @@ export async function handler(event) {
       id: row.order_id,
       total: row.total_amount,
       payment: row.payment_method,
+      status_badge: row.status,
     };
   });
 
@@ -203,5 +224,6 @@ export async function handler(event) {
   const count = merged.length;
   const pageSlice = merged.slice(from, to + 1);
 
+  console.debug('[admin-get-orders-view] sample row', (pageSlice && pageSlice[0]) || null);
   return OK({ data: pageSlice, count, page, limit, errors: diag });
 }
