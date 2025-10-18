@@ -299,6 +299,13 @@ function __renderOrdersTableV2(rows = []) {
       <td data-label="Date">${created}</td>
       <td data-label="Total">${__formatIDR(total)}</td>
       <td data-label="Payment">${payType}</td>
+      <td data-label="Shipping">
+  ${row.shipping_display || row.service_label || row.shipping_service || '—'}
+  <div class="subtext">
+    ${(row.etd_display || row.etd || '—')} • ${(row.shipping_cost_display || '—')}
+  </div>
+</td>
+
       <td data-label="Shipping">${shipping}</td>
       <td data-label="Status"><span class="badge badge-${status}">${status}</span></td>
       <td data-label="Actions">
