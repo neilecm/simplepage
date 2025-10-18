@@ -101,7 +101,14 @@ export async function handler(event) {
           shipping_cost: typeof x.shipping_cost === 'number' ? x.shipping_cost : null,
           shipping_service: x.shipping_service ?? null,
         };
-        return { ...row, ...bits(row) };
+        return {
+          ...row,
+          ...bits(row),
+          // === legacy aliases for Admin UI (keep the UI working) ===
+          id: row.order_id,
+          total: row.total_amount,
+          payment: row.payment_method,
+        };
       });
 
       // Safe front-end filters (since we don’t know exact columns)
@@ -182,7 +189,14 @@ export async function handler(event) {
       shipping_cost: typeof a.shipping_cost === 'number' ? a.shipping_cost : null,
       shipping_service: a.shipping_service ?? null,
     };
-    return { ...row, ...bits(row) };
+    return {
+      ...row,
+      ...bits(row),
+      // === legacy aliases for Admin UI (keep the UI working) ===
+      id: row.order_id,
+      total: row.total_amount,
+      payment: row.payment_method,
+    };
   });
 
   // paginate in JS
