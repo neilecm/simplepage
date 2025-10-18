@@ -158,10 +158,22 @@ async function checkout() {
     // Show spinner
     document.getElementById("spinner").style.display = "block";
 
+    // Ensure persistent order_id for idempotency
+    const getOrCreateOrderId = () => {
+      const K = 'current_order_id';
+      let id = localStorage.getItem(K);
+      if (!id) {
+        id = `ORDER-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+        localStorage.setItem(K, id);
+      }
+      return id;
+    };
+    const order_id = getOrCreateOrderId();
+
     const res = await fetch("/.netlify/functions/create-transaction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, order_id }),
     });
 
     const data = await res.json();
