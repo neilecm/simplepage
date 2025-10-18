@@ -1,106 +1,94 @@
 // netlify/functions/auth-save-address.js
-// ESM-compatible Netlify function
+// Save checkout address + Komerce (RajaOngkir via Komerce) shipping into public.addresses
+// ESM (your package.json has "type":"module")
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Create a server-side client (bypasses RLS with service role)
-// NOTE: Never expose SERVICE ROLE key to the client.
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
+// ---------- helpers ----------
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json; charset=utf-8',
+};
+
+const OK  = (json) => ({ statusCode: 200, headers: CORS, body: JSON.stringify(json) });
+const ERR = (code, json) => ({ statusCode: code, headers: CORS, body: JSON.stringify(json) });
+
+const toNum = (v) => {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
 export async function handler(event) {
   // CORS preflight
-  if (event.httpMethod === 'OPTIONS') {
-    return ok({ ok: true });
-  }
+  if (event.httpMethod === 'OPTIONS') return OK({ ok: true });
+  if (event.httpMethod !== 'POST')    return ERR(405, { error: 'Method Not Allowed' });
 
-  if (event.httpMethod !== 'POST') {
-    return err(405, { error: 'Method Not Allowed' });
-  }
-
+  // Parse JSON body
   let body = {};
   try {
     body = event.body ? JSON.parse(event.body) : {};
   } catch (e) {
-    return err(400, { error: 'Invalid JSON body' });
+    return ERR(400, { error: 'Invalid JSON body', details: String(e?.message || e) });
   }
 
-  // ---- Address/customer basics (keep backward-compat) ----------------------
-  const user_id      = body.user_id      ?? null;
-  const guest_id     = body.guest_id     ?? null;
-  const full_name    = body.full_name    ?? body.name ?? null;
-  const phone        = body.phone        ?? null;
-  const street       = body.street       ?? body.address ?? null;
+  // ---------- address / buyer basics (keep backward compatibility) ----------
+  const user_id     = body.user_id ?? null;
+  const guest_id    = body.guest_id ?? null;
 
-  // Accept both *_id or plain strings (normalize minimally)
-  const province     = body.province     ?? body.province_id ?? null;
-  const city_id      = body.city_id      ?? body.city       ?? null;
-  const district     = body.district     ?? body.district_id ?? null;
-  const subdistrict  = body.subdistrict  ?? body.subdistrict_id ?? null;
-  const postal_code  = body.postal_code  ?? body.postcode ?? null;
+  const full_name   = body.full_name ?? body.name ?? null;
+  const phone       = body.phone ?? null;
 
-  const order_id     = body.order_id     ?? null;
+  // Accept both plain and *_id forms
+  const street      = body.street ?? body.address ?? null;
+  const province    = body.province ?? body.province_id ?? null; // your schema uses 'province' text
+  const city_id     = body.city_id ?? body.city ?? null;
+  const district    = body.district ?? body.district_id ?? null;
+  const subdistrict = body.subdistrict ?? body.subdistrict_id ?? null;
+  const postal_code = body.postal_code ?? body.postcode ?? null;
 
-  // Keep any extra meta the caller sends (safe to store as JSONB)
-  const extra_meta   = body.meta ?? null;
+  const order_id    = body.order_id ?? null;
 
-  // ---- Komerce shipping (new + legacy) -------------------------------------
-  // Prefer body.shipping.*, but gracefully fall back to top-level legacy fields
-  const { shipping = {} } = body || {};
+  // Arbitrary metadata from client (optional)
+  const extra_meta  = body.meta ?? null;
 
-  // Pull with defaults to avoid undefined
-  const {
-    provider = 'komerce', // default: komerce flow
-    courier,               // legacy string code e.g., "jne"
-    shipping_service,      // legacy service code e.g., "REG"
-    courier_code,          // e.g., "jne"
-    courier_name,          // e.g., "JNE"
-    service_code,          // e.g., "REG"
-    service_label,         // e.g., "JNE REG"
-    etd,                   // e.g., "2-3"
-    etd_days,              // number e.g., 3
-    shipping_cost          // number
-    // Optionals for later expansion:
-    // shipping_cashback,
-    // shipping_cost_net,
-    // grandtotal,
-    // service_fee,
-    // net_income,
-    // weight,
-    // is_cod
-  } = shipping;
+  // ---------- Komerce shipping block (new + legacy fallbacks) ----------
+  // Preferred shape sent by CheckoutController.js
+  const { shipping = {} } = body;
 
-  // Backfill from legacy top-level when shipping{} missing
-  const legacyCourier         = courier ?? body.courier ?? null;
-  const legacyShippingService = shipping_service ?? body.shipping_service ?? null;
+  // Rich Komerce fields (tolerant defaults)
+  const provider        = shipping.provider ?? 'komerce';
 
-  // Build a compact shipping meta snapshot (helps debugging/backfill later)
-  const shipping_meta = {
-    provider,
-    courier: legacyCourier,
-    shipping_service: legacyShippingService,
-    courier_code: courier_code ?? legacyCourier ?? null,
-    courier_name: courier_name ?? null,
-    service_code: service_code ?? legacyShippingService ?? null,
-    service_label:
-      service_label ??
-      (courier_name && (service_code ?? legacyShippingService)
-        ? `${courier_name} ${service_code ?? legacyShippingService}`
-        : null),
-    etd: etd ?? null,
-    etd_days: Number.isFinite(etd_days) ? etd_days : null,
-    shipping_cost:
-      typeof shipping_cost === 'string'
-        ? Number(shipping_cost)
-        : (Number.isFinite(shipping_cost) ? shipping_cost : null),
-  };
+  const courier_code    = shipping.courier_code ?? shipping.courier ?? body.courier ?? null; // e.g., "jne"
+  const courier_name    = shipping.courier_name ?? null;                                      // e.g., "JNE"
+  const service_code    = shipping.service_code ?? shipping.shipping_service ?? body.shipping_service ?? null; // "REG"
+  const service_label   =
+    shipping.service_label ??
+    (courier_name && service_code ? `${courier_name} ${service_code}` : null);
 
-  // ---- Build insert row for public.addresses --------------------------------
+  const etd             = shipping.etd ?? null;                         // e.g., "2-3"
+  const etd_days        = Number.isFinite(shipping.etd_days) ? shipping.etd_days : toNum(shipping.etd_days);
+
+  const shipping_cost   = toNum(shipping.shipping_cost);
+
+  // Legacy fields (keep for compatibility with older queries)
+  const courier         = shipping.courier ?? body.courier ?? courier_code ?? null;
+  const shipping_service= shipping.shipping_service ?? body.shipping_service ?? service_code ?? null;
+
+  // Keep a raw snapshot for debugging/backfill (optional but useful)
+  const shipping_meta_raw = Object.keys(shipping || {}).length ? shipping : null;
+
+  // ---------- Build insert row for public.addresses ----------
   const insert = {
-    // existing address/customer fields
+    // core identity / address
     user_id,
     guest_id,
     full_name,
@@ -112,24 +100,24 @@ export async function handler(event) {
     subdistrict,
     postal_code,
 
-    // legacy fields (keep for backward compatibility)
-    courier: legacyCourier,
-    shipping_service: legacyShippingService,
+    // legacy shipping (old UI still reads these)
+    courier,
+    shipping_service,
 
-    // Komerce-rich fields
-    provider: shipping_meta.provider,
-    courier_code: shipping_meta.courier_code,
-    courier_name: shipping_meta.courier_name,
-    service_code: shipping_meta.service_code,
-    service_label: shipping_meta.service_label,
-    etd: shipping_meta.etd,
-    etd_days: shipping_meta.etd_days,
-    shipping_cost: shipping_meta.shipping_cost,
+    // Komerce-rich fields you showed in your Supabase UI
+    provider,
+    courier_code,
+    courier_name,
+    service_code,
+    service_label,
+    etd,
+    etd_days,
+    shipping_cost,
 
-    // raw meta: prefer the caller's shipping object; fall back to extra_meta
-    meta: body.shipping ?? extra_meta ?? null,
+    // raw meta (jsonb in DB is ideal if column type is json/jsonb)
+    meta: shipping_meta_raw ?? extra_meta ?? null,
 
-    // assignment to order (nullable)
+    // association with order (nullable during address-save step)
     order_id,
   };
 
@@ -141,36 +129,12 @@ export async function handler(event) {
       .single();
 
     if (error) {
-      // Surface constraint/column errors clearly for quick fixes
-      return err(400, { error: error.message, details: error });
+      // Return the actual DB error so you can fix column names/types quickly
+      return ERR(400, { error: error.message, details: error, insert });
     }
 
-    return ok({ id: data?.id ?? null });
+    return OK({ id: data?.id ?? null });
   } catch (e) {
-    return err(500, { error: e.message ?? 'Unexpected error' });
+    return ERR(500, { error: e?.message || 'Unexpected server error' });
   }
-}
-
-// ----------------- helpers -----------------
-function ok(json) {
-  return {
-    statusCode: 200,
-    headers: corsHeaders(),
-    body: JSON.stringify(json),
-  };
-}
-function err(status, json) {
-  return {
-    statusCode: status,
-    headers: corsHeaders(),
-    body: JSON.stringify(json),
-  };
-}
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Content-Type': 'application/json; charset=utf-8',
-  };
 }
