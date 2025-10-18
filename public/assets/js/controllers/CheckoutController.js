@@ -162,8 +162,19 @@ await fetch("/.netlify/functions/auth-save-address", {
     district_id:      addr.district_id,
     subdistrict_id:   addr.subdistrict_id,
     postal_code:      addr.postal_code,
+    courier:          addr.courier_code,
+    shipping_service: addr.service_code,
+    courier_name:     addr.courier_name,
+    service_code: addr.service_code,
+    service_label: addr.service_label,
+    etd: addr.etd,
+    etd_days: addr.etd_days,
+    shipping_cost: addr.shipping_cost,
+
     courier:          ship?.courier || ship?.code || null,
     shipping_service: ship?.service || ship?.name || null
+  
+
   })
 });
 // ==== /PATCH ====
@@ -231,23 +242,58 @@ function __ensureGuestId() {
     };
     const ship = (typeof __readShippingSelection === "function") ? __readShippingSelection() : (JSON.parse(localStorage.getItem("komerceShippingSelection") || "{}") || null);
 
+    // Build Komerce shipping block from localStorage (safe parsing)
+    const _metaRaw = localStorage.getItem('shipping_selection_meta');
+    let _meta = {};
+    try { _meta = _metaRaw ? JSON.parse(_metaRaw) : {}; } catch { _meta = {}; }
+
+    const _cost = Number(localStorage.getItem('shipping_cost') || 0);
+    const _legacyService = localStorage.getItem('shipping_service') || _meta.service || null;
+
+    const courier_code  = _meta.courier || null;
+    const courier_name  = _meta.courierName || null;
+    const service_code  = _meta.service || null;
+    const service_label = _meta.label || (courier_name && service_code ? `${courier_name} ${service_code}` : null);
+    const etd           = _meta.etd || null;
+    const etd_days      = etd ? Math.max(...etd.split('-').map(v => parseInt(v, 10)).filter(Number.isFinite)) : null;
+
+    const body = {
+      user_id,
+      guest_id,
+      full_name:       addr.full_name,
+      phone:           addr.phone,
+      street:          addr.street,
+      province_id:     addr.province_id,
+      city_id:         addr.city_id,
+      district_id:     addr.district_id,
+      subdistrict_id:  addr.subdistrict_id,
+      postal_code:     addr.postal_code,
+      // keep legacy top-level for backward compatibility
+      courier:         ship?.courier || ship?.code || courier_code || null,
+      shipping_service:ship?.service || ship?.name || _legacyService || null,
+    };
+
+    body.shipping = {
+      provider: _meta.provider || 'komerce',
+      // legacy (compat)
+      courier: courier_code,
+      shipping_service: _legacyService,
+      // rich Komerce fields
+      courier_code,
+      courier_name,
+      service_code,
+      service_label,
+      etd,
+      etd_days,
+      shipping_cost: Number.isFinite(_cost) ? _cost : null,
+    };
+
+    console.debug('[checkout] shipping payload ->', body.shipping);
+
     const resp = await fetch('/.netlify/functions/auth-save-address', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id,
-        guest_id,
-        full_name:       addr.full_name,
-        phone:           addr.phone,
-        street:          addr.street,
-        province_id:     addr.province_id,
-        city_id:         addr.city_id,
-        district_id:     addr.district_id,
-        subdistrict_id:  addr.subdistrict_id,
-        postal_code:     addr.postal_code,
-        courier:         ship?.courier || ship?.code || null,
-        shipping_service:ship?.service || ship?.name || null
-      })
+      body: JSON.stringify(body),
     });
     if (!resp.ok) {
       const t = await resp.text();
