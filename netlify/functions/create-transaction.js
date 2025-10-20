@@ -1,4 +1,5 @@
-const midtransClient = require('midtrans-client');
+console.log('[create-transaction] source loaded');
+import midtransClient from 'midtrans-client';
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -7,8 +8,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Require clients to pass order_id; do not auto-generate to ensure idempotency
 function bad(msg) { return { statusCode: 400, body: JSON.stringify({ error: msg }) }; }
-
-module.exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     const body = event.body ? JSON.parse(event.body) : {};
     const order_id = body.order_id;
