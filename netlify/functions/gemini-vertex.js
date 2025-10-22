@@ -1,105 +1,86 @@
-// netlify/functions/gemini-vertex.js
-// Vertex AI (Google Cloud) — CommonJS version (works with Netlify CLI/Lambda runtime)
-// Env needed (set locally and on Netlify Site settings):
-//   VERTEX_PROJECT_ID=genesis-473705
-//   VERTEX_LOCATION=us-central1
-//   GEMINI_MODEL=gemini-1.5-pro      # or gemini-2.0-flash / gemini-2.5-pro
-//   GOOGLE_APPLICATION_CREDENTIALS_JSON=<service-account JSON contents>
-//   # (or) GOOGLE_APPLICATION_CREDENTIALS_B64=<base64 of the same JSON>
-//
-// Optional:
-//   FETCH_TIMEOUT_MS=20000            # request timeout in ms
-
+// Vertex AI — CommonJS; robust creds detection (JSON, B64, or path for local dev)
 const { GoogleAuth } = require('google-auth-library');
 
-const ALLOWED_MODELS = new Set([
-  'gemini-1.5-pro',
-  'gemini-2.0-flash',
-  'gemini-2.5-pro',
-]);
+const ALLOWED = new Set(['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.5-pro']);
+const TIMEOUT = parseInt(process.env.FETCH_TIMEOUT_MS || '20000', 10);
 
-const FETCH_TIMEOUT_MS = parseInt(process.env.FETCH_TIMEOUT_MS || '20000', 10);
-
-function json(statusCode, body) {
-  return {
-    statusCode,
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  };
+function json(status, body) {
+  return { statusCode: status, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
 }
 
-function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
+function fetchWithTimeout(url, opts = {}, ms = TIMEOUT) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
-  return fetch(url, { ...opts, signal: ctrl.signal })
-    .finally(() => clearTimeout(t));
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
+function readCreds() {
+  // Prefer explicit envs (safe for Netlify)
+  const rawJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  const rawB64  = process.env.GOOGLE_APPLICATION_CREDENTIALS_B64;
+  if (rawJson && rawJson.trim()) {
+    try {
+      const s = rawJson.trim();
+      // if someone pasted base64 into *_JSON, decode then parse
+      if (!s.startsWith('{')) return JSON.parse(Buffer.from(s, 'base64').toString('utf8'));
+      return JSON.parse(s);
+    } catch {}
+  }
+  if (rawB64 && rawB64.trim()) {
+    try {
+      return JSON.parse(Buffer.from(rawB64.trim(), 'base64').toString('utf8'));
+    } catch {}
+  }
+  // Local dev: support GOOGLE_APPLICATION_CREDENTIALS as a **file path**
+  const filePath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (filePath) {
+    try {
+      const fs = require('fs');
+      const s = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(s);
+    } catch {}
+  }
+  return null; // fall back to ADC
 }
 
 async function getClient() {
-  // Prefer explicit creds from env (works on Netlify)
-  const raw =
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
-    (process.env.GOOGLE_APPLICATION_CREDENTIALS_B64
-      ? Buffer.from(process.env.GOOGLE_APPLICATION_CREDENTIALS_B64, 'base64').toString('utf8')
-      : null);
-
-  if (raw) {
-    const creds = JSON.parse(raw);
-    const auth = new GoogleAuth({
-      credentials: creds,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    });
-    return auth.getClient();
-  }
-
-  // Local fallback: ADC (after `gcloud auth application-default login`)
-  const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+  const creds = readCreds();
+  const auth = creds
+    ? new GoogleAuth({ credentials: creds, scopes: ['https://www.googleapis.com/auth/cloud-platform'] })
+    : new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] }); // ADC if configured
   return auth.getClient();
 }
 
 exports.handler = async (event) => {
   try {
     const body = event.body ? JSON.parse(event.body) : {};
+    const project = process.env.VERTEX_PROJECT_ID;
+    const loc     = process.env.VERTEX_LOCATION || 'us-central1';
+    if (!project) return json(500, { error: 'Missing VERTEX_PROJECT_ID' });
 
-    const projectId = process.env.VERTEX_PROJECT_ID;
-    const location  = process.env.VERTEX_LOCATION || 'us-central1';
-    if (!projectId) return json(500, { error: 'Missing VERTEX_PROJECT_ID' });
+    const model =
+      (typeof body.model === 'string' && ALLOWED.has(body.model) && body.model) ||
+      (ALLOWED.has(process.env.GEMINI_MODEL || '') && process.env.GEMINI_MODEL) ||
+      'gemini-2.0-flash';
 
-    const envModel = process.env.GEMINI_MODEL && ALLOWED_MODELS.has(process.env.GEMINI_MODEL)
-      ? process.env.GEMINI_MODEL
-      : null;
-    const reqModel = body.model && ALLOWED_MODELS.has(body.model) ? body.model : null;
-    const model    = reqModel || envModel || 'gemini-1.5-pro';
-
-    const prompt = typeof body.prompt === 'string' && body.prompt.trim()
-      ? body.prompt
-      : 'Hello from Vertex';
+    const prompt = (body.prompt && String(body.prompt).trim()) || 'Hello from Vertex';
 
     const client = await getClient();
-    const tokenObj = await client.getAccessToken();
-    const token = tokenObj && tokenObj.token;
-    if (!token) return json(500, { error: 'Failed to obtain GCP access token' });
+    const { token } = await client.getAccessToken();
+    if (!token) return json(500, { error: 'Failed to obtain GCP access token (check creds env)' });
 
     const url =
-      `https://${location}-aiplatform.googleapis.com/v1` +
-      `/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
+      `https://${loc}-aiplatform.googleapis.com/v1/projects/${project}/locations/${loc}` +
+      `/publishers/google/models/${model}:generateContent`;
 
-    const res = await fetchWithTimeout(url, {
+    const r = await fetchWithTimeout(url, {
       method: 'POST',
-      headers: {
-        authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }]}],
-      }),
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }]}] }),
     });
 
-    const text = await res.text();
-    if (!res.ok) {
-      return json(res.status, { error: text });
-    }
-
+    const text = await r.text();
+    if (!r.ok) return json(r.status, { error: text });
     return json(200, JSON.parse(text));
   } catch (e) {
     return json(500, { error: String(e && e.message ? e.message : e) });
