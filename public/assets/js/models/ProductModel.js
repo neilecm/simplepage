@@ -124,4 +124,3 @@ export const ProductModel = {
     return uploadSingleFile(file, `${adminId}/videos`);
   },
 };
-

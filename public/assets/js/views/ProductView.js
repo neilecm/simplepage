@@ -1,7 +1,6 @@
 // public/assets/js/views/ProductView.js
 import { format } from "https://esm.sh/date-fns@3.6.0";
-
-const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+import { uuid } from "../utils/uuid.js";
 
 function safeFormatDate(value) {
   if (!value) return "-";

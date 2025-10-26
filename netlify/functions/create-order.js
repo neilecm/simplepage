@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { requireString, normalizeAmount } from './_utils/validator.js';
+import { audit } from './_utils/audit.js';
 
 export async function handler(event) {
   try {
@@ -10,24 +12,19 @@ export async function handler(event) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body = JSON.parse(event.body || "{}");
-    const {
-      order_id,
-      total = null,
-      payment_type = null,
-      status = "pending",
-      user_id = null,
-      guest_id = null,
-    } = body;
+    const { payment_type = null, status = "pending", user_id = null, guest_id = null } = body;
 
-    if (!order_id) {
-      return { statusCode: 400, body: JSON.stringify({ error: "order_id required" }) };
-    }
+    let order_id;
+    try { order_id = requireString(body.order_id, 'order_id'); } catch (e) { return { statusCode: 400, body: JSON.stringify({ error: e.message }) }; }
+    let total;
+    try { total = normalizeAmount({ total: body.total, ...body }); } catch (e) { return { statusCode: 400, body: JSON.stringify({ error: e.message }) }; }
 
     // 1) insert the order (with user or guest id)
     const { error: insErr } = await supabase.from("orders").insert([{
       order_id, user_id, guest_id, total, payment_type, status
     }]);
     if (insErr) {
+      await audit('create-order', 'supabase_error', { order_id, error: insErr.message });
       return { statusCode: 500, body: JSON.stringify({ error: insErr.message }) };
     }
 
@@ -45,6 +42,7 @@ export async function handler(event) {
       }
     }
 
+    await audit('create-order', 'created', { order_id, total, user_id, guest_id });
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   } catch (e) {
     return { statusCode: 500, body: JSON.stringify({ error: e.message || "unknown error" }) };

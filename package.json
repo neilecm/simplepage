@@ -17,9 +17,13 @@
     "ws": "^8.18.3"
   },
   "scripts": {
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "build:admin": "esbuild public/assets/js/admin-main.js --bundle --outfile=public/assets/js/admin-bundle.js --format=esm"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.25.11"
+  }
 }

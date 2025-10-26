@@ -1,5 +1,6 @@
 // netlify/functions/payment-callback.js
 import crypto from "crypto";
+import { audit } from './_utils/audit.js';
 const { MIDTRANS_SERVER_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
 const fetch2 = (...a) => import("node-fetch").then(({default: f}) => f(...a));
 
@@ -61,6 +62,12 @@ export async function handler(event) {
     status: mapStatus(p.transaction_status, p.fraud_status)
   };
 
+  // Ensure numeric consistency for totals
+  if (typeof row.gross_amount === 'string') {
+    const n = Number(row.gross_amount);
+    row.gross_amount = Number.isFinite(n) ? n : null;
+  }
+
   const headers = {
     "Content-Type": "application/json",
     apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -83,9 +90,12 @@ export async function handler(event) {
     });
   } catch (e) {
     console.error("supabase error", e);
+    await audit('payment-callback', 'supabase_error', { order_id: row.order_id, error: e.message || String(e) });
     // Still return 200 so Midtrans doesn’t retry forever
     return ok("upsert-exception");
   }
+
+  await audit('payment-callback', 'received', { order_id: row.order_id, status: row.status, transaction_status: row.transaction_status });
 
   return ok("ok");
 }

@@ -5,6 +5,10 @@
 [dev]
   functions = "netlify/functions"
   publish = "public"
+  framework = "#static" # Force static server
+  targetPort = 3000 # Port for the static server
+  port = 8888 # Port for the Netlify Dev server
+  staticServerPort = 3999 # Explicitly define the static server port
 
 [functions]
   node_bundler = "esbuild"

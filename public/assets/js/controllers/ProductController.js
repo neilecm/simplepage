@@ -2,7 +2,7 @@
 import { ProductModel } from "../models/ProductModel.js";
 import { ProductView } from "../views/ProductView.js";
 
-const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+import { uuid } from "../utils/uuid.js";
 
 export const ProductController = {
   init(admin) {

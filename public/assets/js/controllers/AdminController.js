@@ -1,26 +1,24 @@
 // public/assets/js/controllers/AdminController.js
-//import { AdminModel } from "../models/AdminModel.js";
-//import { AdminView } from "../views/AdminView.js";
-//import { ProductController } from "./ProductController.js";
-//import { AdminOrdersModelV2 } from "../models/AdminOrdersModelV2.js";
+import { AdminModel } from "../models/AdminModel.js";
+import { AdminView } from "../views/AdminView.js";
+import { ProductController } from "./ProductController.js";
+import { AdminOrdersModelV2 } from "../models/AdminOrdersModelV2.js";
 
-
-/* global AdminModel, AdminView, AdminOrdersModelV2 */
+const FILTER_DEBOUNCE = 300; // ms
 
 // ===== Admin V2 toggle & fetch wrapper (top-of-file) =====
 const __useAdminV2 = /(?:^|[?&])v=2(?:&|$)/.test(location.search);
 
 // Chooses VIEW-based V2 when ?v=2, otherwise falls back to your existing API.
 async function __fetchOrders({ page = 1, limit = 10, q = "", status = "all", adminId } = {}) {
-  if (__useAdminV2 && window.AdminOrdersModelV2) {
-    return window.AdminOrdersModelV2.list({ page, limit, q, status });
+  if (__useAdminV2 && AdminOrdersModelV2) {
+    return AdminOrdersModelV2.list({ page, limit, q, status });
   }
   // legacy path (your existing model)
   return AdminModel.fetchOrders({ adminId });
 }
 
-
- const AdminController = {
+export const AdminController = {
   init() {
     this.cacheElements();
     this.bindEvents();
@@ -40,9 +38,7 @@ async function __fetchOrders({ page = 1, limit = 10, q = "", status = "all", adm
 
     AdminView.showLoading();
     this.loadOrders();
-    if (window.ProductController?.init) {
     ProductController.init(this.user);
-  }
     this.switchTab("orders");
   },
 
@@ -121,12 +117,12 @@ async function __fetchOrders({ page = 1, limit = 10, q = "", status = "all", adm
       AdminView.showLoading();
       // You can wire real filters later; these safe defaults just work
       const response = await __fetchOrders({
-      adminId: this.user.id, // used by legacy path only
-      page: 1,
-      limit: 10,
-      q: "",
-      status: document.getElementById("order-status-filter")?.value || "all"
-    });
+        adminId: this.user.id, // used by legacy path only
+        page: 1,
+        limit: 10,
+        q: "",
+        status: document.getElementById("order-status-filter")?.value || "all"
+      });
 
       if (response && Array.isArray(response.data)) {
         this.orders = response.data;
@@ -136,10 +132,10 @@ async function __fetchOrders({ page = 1, limit = 10, q = "", status = "all", adm
         this.orders = [];
       }
       if (__useAdminV2) {
-     __renderOrdersTableV2(this.orders);   // render with enriched fields
-   } else {
-     this.applyFilters();                   // your existing flow
-  }
+        AdminView.renderOrdersTable(this.orders);   // render with enriched fields
+      } else {
+        AdminView.renderOrdersTable(this.orders);  // your existing flow
+      }
     } catch (error) {
       console.warn("[AdminController.loadOrders]", error);
       if (error.status === 401 || error.status === 403) {
@@ -179,13 +175,11 @@ async function __fetchOrders({ page = 1, limit = 10, q = "", status = "all", adm
     }
 
     this.filteredOrders = filtered;
-if (__useAdminV2) {
-  __renderOrdersTableV2(filtered);        // enriched view
-} else {
-  AdminView.renderOrdersTable(filtered);  // legacy renderer
-}
-
-
+    if (__useAdminV2) {
+      AdminView.renderOrdersTable(filtered);        // enriched view
+    } else {
+      AdminView.renderOrdersTable(filtered);  // legacy renderer
+    }
   },
 
   switchTab(tab) {
@@ -250,89 +244,3 @@ if (__useAdminV2) {
     }
   },
 };
-
-window.AdminController = AdminController;
-
-
-function __formatIDR(n) {
-  try {
-    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
-      .format(Math.max(0, Number(n) || 0));
-  } catch {
-    return `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
-  }
-}
-
-function __renderOrdersTableV2(rows = []) {
-  const tbody = document.getElementById("orders-body");
-  const empty = document.getElementById("orders-empty");
-  if (!tbody) return;
-
-  tbody.innerHTML = "";
-  if (!rows.length) {
-    if (empty) empty.hidden = false;
-    return;
-  }
-  if (empty) empty.hidden = true;
-
-  const frag = document.createDocumentFragment();
-
-  const pick = (...v) => v.find(x => x !== undefined && x !== null && x !== '') ?? null;
-  const fmtIDR = (n) => (typeof n === 'number' && isFinite(n))
-    ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n)
-    : '—';
-
-  rows.forEach((row) => {
-    const oid      = pick(row.order_id, row.id);
-    const createdV = row.created_at || row.createdAt || null;
-    const customer = pick(row.customer_name, row.customer, row.full_name);
-
-    const totalNum = pick(row.total, row.total_amount, row.gross_amount, row.amount);
-    const total    = (typeof totalNum === 'number') ? fmtIDR(totalNum) : fmtIDR(Number(totalNum));
-
-    const payment  = pick(row.payment, row.payment_method, row.payment_type) || '—';
-    const status   = (pick(row.status, row.status_badge, row.transaction_status) || '—').toString().toLowerCase();
-
-    const shipMain = pick(row.shipping_display, row.service_label, row.shipping_service) || '—';
-    const shipSub  = `${pick(row.etd_display, row.etd) || '—'} • ${pick(row.shipping_cost_display) || '—'}`;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td data-label="Order ID">${oid || '—'}</td>
-      <td data-label="Customer">${customer || '—'}</td>
-      <td data-label="Date">${createdV ? new Date(createdV).toLocaleString('id-ID') : '—'}</td>
-      <td data-label="Total">${total}</td>
-      <td data-label="Payment">${payment}</td>
-      <td data-label="Shipping">
-        ${shipMain}
-        <div class="subtext">${shipSub}</div>
-      </td>
-      <td data-label="Status"><span class="badge badge-${status}">${status}</span></td>
-      <td data-label="Actions">
-        <div class="actions">
-          <button class="pill-button secondary" data-order="${oid || ''}" data-action="view">View Details</button>
-        </div>
-      </td>
-    `;
-    frag.appendChild(tr);
-  });
-
-  tbody.appendChild(frag);
-
-  // optional details hook
-  tbody.querySelectorAll('button[data-action="view"]').forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-order");
-      const row = rows.find(r => (r.order_id || "") === id);
-      if (row && window.AdminView?.renderOrderDetails) {
-        AdminView.renderOrderDetails(row);
-      }
-    });
-  });
-}
-
-
-
-window.addEventListener("DOMContentLoaded", () => AdminController.init());
-
-// TODO: wire “View Details” button to a modal with line items in the next phase.
