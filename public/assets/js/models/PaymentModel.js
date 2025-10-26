@@ -1,5 +1,5 @@
 export const PaymentModel = {
-  async createTransaction({ orderId, items, address, amount }) {
+  async createTransaction({ orderId, items, address, amount, payment_type }) {
     // identity
     let user_id = null;
     try {
@@ -21,10 +21,32 @@ export const PaymentModel = {
       } catch { grossAmount = 0; }
     }
 
+    // Normalize items to expected shape
+    const normalizedItems = Array.isArray(items)
+      ? items.map((it, idx) => ({
+          id: String(it.id ?? idx + 1),
+          name: String(it.name ?? it.title ?? 'Item'),
+          price: Number(it.price ?? it.unit_price ?? 0),
+          quantity: Number(it.quantity ?? it.qty ?? 1)
+        }))
+        .filter(it => Number.isFinite(it.price) && it.price >= 0 && Number.isFinite(it.quantity) && it.quantity > 0)
+      : (() => {
+          try {
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            return cart.map((it, idx) => ({
+              id: String(it.id ?? idx + 1),
+              name: String(it.name ?? it.title ?? 'Item'),
+              price: Number(it.price ?? 0),
+              quantity: Number(it.qty ?? 1)
+            })).filter(it => Number.isFinite(it.price) && it.price >= 0 && Number.isFinite(it.quantity) && it.quantity > 0);
+          } catch { return []; }
+        })();
+
     const payload = {
       order_id: orderId || undefined,
       amount: grossAmount,
-      items: Array.isArray(items) ? items : [],
+      payment_type: payment_type || null,
+      items: normalizedItems,
       address: address || {
         full_name: localStorage.getItem('full_name') || '',
         phone: localStorage.getItem('phone') || '',
@@ -48,10 +70,11 @@ export const PaymentModel = {
       body: JSON.stringify(payload)
     });
 
+    const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
-      const err = await resp.text();
-      throw new Error(`PaymentModel error: ${err || resp.status}`);
+      const message = data?.error?.message || data?.error || `HTTP ${resp.status}`;
+      throw new Error(message);
     }
-    return resp.json();
+    return data;
   }
 };

@@ -74,7 +74,7 @@ if (!window.snapInitiated) {
 ;
     } catch (error) {
       console.error("PaymentController.init error:", error);
-      PaymentView.showStatus(error.message, "error");
+      PaymentView.showStatus(error.message || "Failed to initialize payment.", "error");
     }
   }
 };

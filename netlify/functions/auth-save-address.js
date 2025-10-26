@@ -49,8 +49,8 @@ export async function handler(event) {
 
   // Accept both plain and *_id forms
   const street      = body.street ?? body.address ?? null;
-  const province    = body.province ?? body.province_id ?? null; // your schema uses 'province' text
-  const city_id     = body.city_id ?? body.city ?? null;
+  const province    = body.province ?? body.province_id ?? null; // DB column is "province"
+  const cityValue   = body.city_id ?? body.city ?? null;         // map to DB column "city"
   const district    = body.district ?? body.district_id ?? null;
   const subdistrict = body.subdistrict ?? body.subdistrict_id ?? null;
   const postal_code = body.postal_code ?? body.postcode ?? null;
@@ -95,7 +95,7 @@ export async function handler(event) {
     phone,
     street,
     province,
-    city_id,
+    city: cityValue,       // << use "city" (DB column) instead of "city_id"
     district,
     subdistrict,
     postal_code,
@@ -121,6 +121,9 @@ export async function handler(event) {
     order_id,
   };
 
+  // defensively remove undefined keys so PostgREST never sees unknown columns
+ Object.keys(insert).forEach((k) => insert[k] === undefined && delete insert[k]);
+
   try {
     const { data, error } = await supabase
       .from('addresses')
@@ -138,3 +141,4 @@ export async function handler(event) {
     return ERR(500, { error: e?.message || 'Unexpected server error' });
   }
 }
+
